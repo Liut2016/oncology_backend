@@ -92,38 +92,7 @@ let util = {
         }
         return res;
     },
-    generateJSON(data) {
-        const JSON_data = [];
-        data.forEach((part, index) => {
-            const the_part = {};
-            const part_index = index;
-            the_part['step_description'] = part.name;
-            the_part['items'] = [];
-            part.data.splice(0, 2);
-            part.data.forEach((item, index) => {
-                if (item.length !== 0) {
-                    const temp_item = {};
-                    temp_item['name'] = item[0];
-                    let temp_id = `part${part_index}_${PY_translator(item[0], {style: PY_translator.STYLE_FIRST_LETTER})}`;
 
-                    temp_item['id'] = temp_id.split(',').join('');
-                    if (item[3]) {
-                        if (item[3].split('/').length > 1 || item[3].split(',').length > 1) {
-                            temp_item['type'] = 'radio';
-                        } else {
-                            temp_item['type'] = 'input';
-                        }
-                    } else {
-                        temp_item['type']= 'input';
-                    }
-                    item[4] ? temp_item['unit'] = item[4] : temp_item['unit'] = '';
-                    the_part['items'].push(temp_item);
-                }
-            });
-            JSON_data.push(the_part);
-        });
-        return JSON_data;
-    },
     generateSQL(data) {
         const sql_set = [];
         const part1 = data[0];
@@ -189,6 +158,25 @@ let util = {
             default:
                 return 'TEXT'
         }
+    },
+
+    cleanData(data) {
+        data.forEach(item => {
+            Object.keys(item).forEach(key => {
+                if (key === 'PART1_xm' || key === 'PART1_lxr') {
+                    let name_arr = (item[key]).split('');
+                    name_arr[name_arr.length - 1] = '*';
+                    item[key] = name_arr.join('');
+                }
+                if (key === 'PART1_lxdh' || key === 'PART1_lxrdh') {
+                    let phone_arr = (item[key]).split('');
+                    if (phone_arr.length === 11) {
+                        phone_arr[3] = phone_arr[4] = phone_arr[5] = phone_arr[6] = '*';
+                    }
+                    item[key] = phone_arr.join('');
+                }
+            })
+        })
     }
 };
 

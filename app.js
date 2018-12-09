@@ -13,9 +13,20 @@ const router = require('./router');
 const Tips = require('./utils/tips');
 const fs = require('fs');
 const path = require('path');
-const xlsx = require('node-xlsx');
+const cors = require('@koa/cors');
+const koaSwagger = require('koa2-swagger-ui');
+const static = require('koa-static');
 
+
+app.use(cors());
 app.use(koaBody());
+app.use(static(path.resolve(__dirname, './public')));
+app.use(koaSwagger({
+    routePrefix: '/swagger',
+    swaggerOptions: {
+        url: 'http://localhost:8080/swagger.json',
+    },
+}),);
 
 app.use(async(ctx, next) => {
     let {url = ''} = ctx;

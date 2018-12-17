@@ -22,7 +22,7 @@ router.get('/oa/patient/:hos_id', async(ctx, next) => {
    let sql = `SELECT * FROM PART1 WHERE PART1_zyh=${hos_id}`;
    await db.query(sql).then(res => {
        Utils.cleanData(res);
-       ctx.body = {...Tips[0], data: res}
+       ctx.body = {...Tips[0], data: res[0]}
    }).catch(e => {
        ctx.body = {...Tips[1002], reason:e}
    })
@@ -77,5 +77,9 @@ router.get('/oa/generate', async(ctx, next) => {
    })
 });
 
+router.get('/oa/test', (ctx, next) => {
+    console.log(ctx.query);
+    ctx.body = {...ctx.params};
+});
 
 module.exports = router;

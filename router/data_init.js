@@ -1,6 +1,4 @@
 const router = require('koa-router')();
-const Utils = require('../utils/methods');
-const Tips = require('../utils/tips');
 const db = require('../db/index');
 const fs = require('fs');
 const path = require('path');
@@ -11,8 +9,6 @@ const iconv = require('iconv-lite');
 const first_home_page = require('../db/first_affiliated');
 
 router.get('/oa/init_weight' ,async (ctx, next) => {
-
-
        await init_weight().then(async (res) => {
         console.log('after db', res);
         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/height_Weight.csv') , {encoding: 'binary'}), 'binary');
@@ -111,8 +107,118 @@ router.get('/oa/init_home', async(ctx, next) => {
      await db.query(sql, [load_data]).then((res) => {
          ctx.body = {status: '一附院病案首页存储成功'};
      }).catch(e => {
-         console.log(e);
          ctx.body = {status: '存储失败'}
      })
  });
+
+ // 初始化二附院病案首页与费用表
+ router.get('/oa/init_home_2', async(ctx, next) => {
+    const home_data = fs.readFileSync(path.join(__dirname, '../data/second_home_key.xlsx'));
+    const json_data = xlsx.parse(home_data)[0].data;
+    const filtered_data = [];
+    json_data.forEach(item => {
+        if (item.length !== 0) {
+            filtered_data.push({
+                name: item[0],
+                type: item[1]
+            })
+        }
+    });
+    // 从键值表second_home_key中，拿出数据字段名称与类型
+
+    filtered_data.splice(0, 2);
+    //去掉多余的几行
+
+    let transed_data = filtered_data.map((item,index) => {
+        let part = index > 31 ? 'part2' : 'part1';
+        let name = `${part}_${PY_translator(item.name, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+        let format_name = name.split(',').join('');
+        return {
+            name: format_name,
+            type: generateType(item.type)
+        };
+    });
+    // 生成对应的首字母键值和存储类型，不同部分有不同的part值
+
+    const home_page_data = transed_data.slice(0, 32).map(item => {
+        return `${item.name} ${item.type}`
+    });
+    const fee_data = transed_data.slice(32).map(item => {
+        return `${item.name} ${item.type}`
+    });
+    // 将此数组转换为键值-类型
+
+    home_page_data.unshift(`part1_pid INT unsigned not null auto_increment`);
+    home_page_data.push('PRIMARY KEY (part1_pid)');
+    fee_data.unshift(home_page_data[1]);
+    fee_data.push(`PRIMARY KEY (part1_bah)`);
+    const home_sql = `CREATE TABLE IF NOT EXISTS SECOND_HOME (${home_page_data.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    const fee_sql = `CREATE TABLE IF NOT EXISTS SECOND_FEE (${fee_data.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    // 处理生成存储语句
+
+    const init_home_db = await db.query(home_sql);
+    const init_fee_db = await db.query(fee_sql);
+
+    Promise.all([init_home_db,init_fee_db]).then((res) => {
+        ctx.body = {status: '首页与费用数据建表成功'}
+    }).catch((e) => {
+        ctx.body = {status: '建表失败'};
+    })
+ });
+
+ router.get('/oa/load_home_2', async(ctx, next) => {
+    const home_data =  fs.readFileSync(path.join(__dirname, '../data/second_home_data_format.xlsx'));
+     const json_home_data = xlsx.parse(home_data)[0].data;
+     const json_fee_data = xlsx.parse(home_data)[1].data;
+     const home_key = json_home_data[0].map(item => {
+         const key = `part1_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return key.split(',').join('');
+     });
+     const fee_key = json_fee_data[0].map(item => {
+         const key = `part2_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return key.split(',').join('');
+     });
+     fee_key[0] = 'part1_bah';
+     // 存储数据前，先整理出所有数据对应的键值，并对特殊情况进行处理，如费用表中的主键part1_bah
+
+     const sql_home = `INSERT INTO SECOND_HOME (${home_key.join(',')}) VALUES ?`;
+     const sql_fee = `INSERT INTO SECOND_FEE (${fee_key.join(',')}) VALUES ?`;
+     const save_home_data = json_home_data.slice(1, 20);
+     const save_fee_data = json_fee_data.slice(1, 20);
+     save_home_data.forEach(item => {
+         if (item.length === 31)
+         item.push('-');
+     });
+     // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
+
+     const home_db = await db.query(sql_home, [save_home_data]);
+     const fee_db = await db.query(sql_fee, [save_fee_data]);
+     Promise.all([home_db,fee_db]).then((res) => {
+         ctx.body = {status: '首页与费用数据导入成功'}
+     }).catch((e) => {
+         console.log(e);
+         ctx.body = {status: '导入失败'};
+     })
+ });
+
+generateType = (type) => {
+    switch (type) {
+        case '数字':
+            return 'INT';
+        case '长数字':
+            return 'BIGINT';
+        case '长字符串':
+            return 'VARCHAR(300)';
+        case '字符串':
+            return 'VARCHAR(120)';
+        case '数值':
+            return 'INT';
+        case '时间':
+            return 'VARCHAR(60)';
+        case '小数字':
+            return 'DECIMAL(10, 2)';
+        default:
+            return 'TEXT'
+    }
+};
 module.exports = router;

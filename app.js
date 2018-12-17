@@ -61,13 +61,6 @@ app.use(compress({
 }));
 router(app);
 http.createServer(app.callback()).listen(PORT);
-/*const xlsx_file = fs.readFileSync(path.join(__dirname, './data/oncology_key.xlsx'));
-const json_data = xlsx.parse(xlsx_file);
-const formatJSON = Utils.generateJSON(json_data);
-Utils.generateSQL(json_data);
-Utils.parseCSV();
-fs.writeFileSync(path.join(__dirname, './data/oncology.json'), JSON.stringify(formatJSON), 'utf8', (err)=> {
-    if (err) throw err;
-});*/
+
 
 log('server is running on port: %s', PORT);

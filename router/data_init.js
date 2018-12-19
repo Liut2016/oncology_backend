@@ -6,11 +6,12 @@ const xlsx = require('node-xlsx');
 const PY_translator=require('pinyin');
 const csv = require('csvjson');
 const iconv = require('iconv-lite');
-const first_home_page = require('../db/first_affiliated');
+const Type = require('../db/first_affiliated');
+
+const type = Type.type;
 
 router.get('/oa/init_weight' ,async (ctx, next) => {
        await init_weight().then(async (res) => {
-        console.log('after db', res);
         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/height_Weight.csv') , {encoding: 'binary'}), 'binary');
         let csv_file = iconv.decode(csv_buffer, 'GBK');
         const options = {
@@ -59,7 +60,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
 
 // 一附院病案首页表建立
 router.get('/oa/init_home', async(ctx, next) => {
-    const home_page_type = first_home_page.home_page_type;
+    const home_page_type = type.home_page_type;
     home_page_type.unshift('INT unsigned not null auto_increment');
 
     const home_data = fs.readFileSync(path.join(__dirname, '../data/first_home_page.xls'));
@@ -91,7 +92,7 @@ router.get('/oa/init_home', async(ctx, next) => {
  // 一附院病案首页数据载入
  router.get('/oa/load_home', async(ctx, next) => {
      const home_data = fs.readFileSync(path.join(__dirname, '../data/first_home_page.xls'));
-     const json_data = xlsx.parse(home_data)[0].data;
+     const json_data = xlsx.parse(home_data, {cellDates: true})[0].data;
      const title_array = [];
      json_data[0].shift();
      json_data[0].forEach(title => {
@@ -102,12 +103,100 @@ router.get('/oa/init_home', async(ctx, next) => {
      json_data.forEach(item => {
          item.shift();
      });
-     const load_data = json_data.slice(0, 100);
+     const load_data = json_data;
      const sql = `INSERT INTO FIRST_HOME (${title_array.join(',')}) VALUES ?`;
      await db.query(sql, [load_data]).then((res) => {
          ctx.body = {status: '一附院病案首页存储成功'};
      }).catch(e => {
          ctx.body = {status: '存储失败'}
+     })
+ });
+
+ router.get('/oa/init_advice', async(ctx, next) => {
+     const types = type.advice_page_type;
+     let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_home_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
+     let csv_file = iconv.decode(csv_buffer, 'GBK');
+     const options = {
+         delimiter: ',',
+         quote: '"'
+     };
+     const Key_section = csv.toObject(csv_file, options)[0];
+     const advice_item = [];
+     Object.keys(Key_section).forEach((item, index) => {
+         let key = `part2_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         advice_item.push(`${key.split(',').join('')} ${types[index]}`);
+     });
+     advice_item.unshift('part2_pid INT unsigned not null auto_increment');
+     advice_item.push('PRIMARY KEY (part2_pid)');
+     advice_item.push('INDEX ZYLSH (part2_zyh(14))');
+     const sql = `CREATE TABLE IF NOT EXISTS FIRST_ADVICE (${advice_item.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+     await db.query(sql).then(res => {
+         ctx.body = {status: '初始化一附院医嘱表成功'};
+     }).catch(e => {
+         console.log(e);
+         ctx.body = {status: '初始化一附院医嘱表失败', error: e};
+     })
+ });
+
+ router.get('/oa/load_advice', async(ctx, next) => {
+     const buffer_array = [];
+     for (let i = 1 ;i <6; i++) {
+         console.log(`reading file ${i}`);
+         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, `../data/first_home_advice/advice${i}.csv`) , {encoding: 'binary'}), 'binary');
+         buffer_array.push(csv_buffer);
+     }
+     // let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_home_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
+     const decode_file = buffer_array.map(buffer => iconv.decode(buffer, 'GBK'));
+     //let csv_file = iconv.decode(csv_buffer, 'GBK');
+     const options = {
+         delimiter: ',',
+         quote: '"'
+     };
+     const allData =  decode_file.map(file => csv.toObject(file, options));
+     // const data = [...allData[0], ...allData[1],...allData[2],...allData[3],...allData[4]];
+     const data = [...allData[0]];
+     const advice_item = [];
+     Object.keys(data[0]).forEach((item) => {
+         let key = `part2_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         advice_item.push(`${key.split(',').join('')}`);
+     });
+     const values = [];
+     allData.forEach(data => {
+         const part = [];
+         data.forEach(item => {
+             const value = [];
+             Object.keys(data[0]).forEach(key => {
+                 if (item[key] === '') {
+                     value.push(null);
+                 } else {
+                     value.push(item[key]);
+                 }
+             });
+             part.push(value);
+         });
+         values.push(part);
+     });
+
+     console.log(values.length);
+     console.log(values[0].length, values[1].length, values[2].length, values[3].length, values[4].length);
+     console.log(process.memoryUsage());
+
+     const sql = `INSERT INTO FIRST_ADVICE (${advice_item.join(',')}) VALUES ?`;
+     const part1 = await db.query(sql, [values[0]]);
+     const part2 = await db.query(sql, [values[1]]);
+     const part3 = await db.query(sql, [values[2]]);
+     const part4 = await db.query(sql, [values[3]]);
+     const part5 = await db.query(sql, [values[4]]);
+     Promise.all([part1, part2, part3, part4, part5]).then((res) => {
+         ctx.body = {
+             status: '数据初始化成功',
+             info: res
+         }
+     }).catch(e => {
+         ctx.body = {
+             status: '数据初始化失败',
+             info: e
+         }
      })
  });
 

@@ -25,6 +25,18 @@ router.get('/oa/patient/:hos_id', async(ctx, next) => {
    })
 });
 
+router.get('/oa/patient_1/:zyh', async(ctx, next) => {
+    let params = ctx.params;
+    let {zyh} = params;
+    let sql = `SELECT * FROM FIRST_HOME WHERE part1_zylsh='${zyh}'`;
+    await db.query(sql).then(res => {
+        Utils.cleanData(res);
+        ctx.body = {...Tips[0], data: res[0]}
+    }).catch(e => {
+        ctx.body = {...Tips[1002], reason:e}
+    })
+});
+
 router.get('/oa/patients_2' ,async (ctx, next) => {
     let sql = 'SELECT part1_pid, part1_bah, part1_xm, part1_nl, part1_xb, part1_cysj FROM SECOND_HOME;';
     await db.query(sql).then(res => {

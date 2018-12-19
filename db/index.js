@@ -5,7 +5,7 @@ let config = {
     password: '1994311',
     database: 'project',
     port: 3306,
-    multipleStatements: true
+    multipleStatements: true,
 };
 let pool = mysql.createPool(config);
 let query = (sql, values) => {

@@ -74,4 +74,43 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
 
 
 
+//post方法实现一附院所有病人病案首页信息分页
+router.post('/oa/patients1/',async (ctx, next) =>{
+    var pagesize = parseInt(ctx.request.body.pagesize);
+    var pageindex = parseInt(ctx.request.body.pageindex);
+    var start = (pageindex-1) * pagesize;
+    let sql1 = `SELECT * FROM FIRST_HOME limit ${start},${pagesize};`;
+    let sql2 = 'SELECT COUNT(*) FROM FIRST_HOME;';
+    //console.log(sql1);
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    Promise.all([part1, part2]).then((res) => {
+        num = res[1][0]['COUNT(*)'];
+        data = res[0];
+        //Utils.cleanData(res);
+        ctx.body = {...Tips[0],count_num:num,data:data};
+
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e}
+    })
+
+});
+
+//通过pid获取一附院病人病案首页信息
+router.get('/oa/patient1/:pid',async(ctx,next) => {
+    let params = ctx.params;
+    let {pid} = params;
+    //console.log(ctx.params);
+    //let sql = `SELECT * FROM FIRST_HOME WHERE part1_pid=${pid}`;
+    await db.query(
+        'select * from FIRST_HOME where part1_pid= ?',
+        [pid]
+    ).then(res => {
+        Utils.cleanData(res);
+        ctx.body = {...Tips[0],data:res[0]}
+    }).catch(e => {
+        ctx.body = {...Tips[1002],reason:e}
+    })
+});
+
 module.exports = router;

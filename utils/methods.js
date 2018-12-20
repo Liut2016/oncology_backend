@@ -105,6 +105,24 @@ let util = {
                 }
             })
         })
+    },
+
+    generateCategory(data, key) {
+        const type = [];
+        data.forEach(item => {
+            const result = type.findIndex((value, index, arr) => {
+                return value.type === item[key];
+            });
+            if (result < 0) {
+                type.push({
+                    type: item[key],
+                    data: [item]
+                });
+            } else {
+                type[result].data.push(item);
+            }
+        });
+        return type;
     }
 };
 

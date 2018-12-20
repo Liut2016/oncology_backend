@@ -28,10 +28,13 @@ router.get('/oa/patient/:hos_id', async(ctx, next) => {
 router.get('/oa/patient_1/:zyh', async(ctx, next) => {
     let params = ctx.params;
     let {zyh} = params;
-    let sql = `SELECT * FROM FIRST_HOME WHERE part1_zylsh='${zyh}'`;
-    await db.query(sql).then(res => {
-        Utils.cleanData(res);
-        ctx.body = {...Tips[0], data: res[0]}
+    let sql_home = `SELECT * FROM FIRST_HOME WHERE part1_zylsh='${zyh}'`;
+    let sql_advice = `SELECT * FROM FIRST_ADVICE WHERE part2_zyh = '${zyh}'`;
+    const home = await db.query(sql_home);
+    const advice = await db.query(sql_advice);
+    Promise.all([home, advice]).then(res => {
+       // Utils.cleanData(res);
+        ctx.body = {...Tips[0], data: {home: res[0], advice: Utils.generateCategory(res[1], 'part2_yzlb')}}
     }).catch(e => {
         ctx.body = {...Tips[1002], reason:e}
     })
@@ -68,6 +71,7 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
         ctx.body = {state: 500, error: e}
     });
 });
+
 
 
 module.exports = router;

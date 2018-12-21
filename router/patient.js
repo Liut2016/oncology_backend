@@ -74,7 +74,8 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
 router.post('/oa/patients1/',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
-    var start = (pageindex-1) * pagesize;
+    //var start = (pageindex-1) * pagesize;
+    var start = pageindex -1;
     let sql1 = `SELECT * FROM FIRST_HOME limit ${start},${pagesize};`;
     let sql2 = 'SELECT COUNT(*) FROM FIRST_HOME;';
     //console.log(sql1);

@@ -98,7 +98,6 @@ router.post('/oa/patients1/',async (ctx, next) =>{
 
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-    console.log(ctx.params);
     let params = ctx.params;
     let {pid, zyh} = params;
     const home_sql = `select * from FIRST_HOME where part1_pid = ${pid}`;

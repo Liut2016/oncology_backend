@@ -97,14 +97,34 @@ let util = {
                     item[key] = name_arr.join('');
                 }
                 if (key === 'part1_hzlxdh' || key === 'part1_lxrdh' || key === 'part1_xzzdh' || key === 'part1_dwdh') {
-                    let phone_arr = (item[key]).split('');
-                    if (phone_arr.length === 11) {
-                        phone_arr[3] = phone_arr[4] = phone_arr[5] = phone_arr[6] = '*';
+                    if (item[key]) {
+                        let phone_arr = (item[key]).split('');
+                        if (phone_arr.length === 11) {
+                            phone_arr[3] = phone_arr[4] = phone_arr[5] = phone_arr[6] = '*';
+                        }
+                        item[key] = phone_arr.join('');
                     }
-                    item[key] = phone_arr.join('');
                 }
             })
         })
+    },
+
+    generateCategory(data, key) {
+        const type = [];
+        data.forEach(item => {
+            const result = type.findIndex((value, index, arr) => {
+                return value.type === item[key];
+            });
+            if (result < 0) {
+                type.push({
+                    type: item[key],
+                    data: [item]
+                });
+            } else {
+                type[result].data.push(item);
+            }
+        });
+        return type;
     }
 };
 

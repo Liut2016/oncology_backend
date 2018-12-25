@@ -2,8 +2,8 @@ const mysql = require('mysql');
 let config = {
     host: 'localhost',
     user: 'root',
-    password: 'liutao',
-    database: 'oncology',
+    password: '1994311',
+    database: 'project',
     port: 3306,
     multipleStatements: true,
 };

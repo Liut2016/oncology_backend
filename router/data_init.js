@@ -7,8 +7,10 @@ const PY_translator=require('pinyin');
 const csv = require('csvjson');
 const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
+const second_Type = require('../db/second_affiliated');
 
 const type = Type.type;
+const sec_type = second_Type.type;
 
 router.get('/oa/init_weight' ,async (ctx, next) => {
        await init_weight().then(async (res) => {
@@ -202,7 +204,7 @@ router.get('/oa/init_home', async(ctx, next) => {
 
  // 初始化二附院病案首页与费用表
  router.get('/oa/init_home_2', async(ctx, next) => {
-    const home_data = fs.readFileSync(path.join(__dirname, '../data/second_home_key.xlsx'));
+    const home_data = fs.readFileSync(path.join(__dirname, '../data/second_data/second_home_key.xlsx'));
     const json_data = xlsx.parse(home_data)[0].data;
     const filtered_data = [];
     json_data.forEach(item => {
@@ -218,8 +220,9 @@ router.get('/oa/init_home', async(ctx, next) => {
     filtered_data.splice(0, 2);
     //去掉多余的几行
 
+     console.log(filtered_data[30]);
     let transed_data = filtered_data.map((item,index) => {
-        let part = index > 31 ? 'part2' : 'part1';
+        let part = index > 30 ? 'part2' : 'part1';
         let name = `${part}_${PY_translator(item.name, {style: PY_translator.STYLE_FIRST_LETTER})}`;
         let format_name = name.split(',').join('');
         return {
@@ -229,18 +232,20 @@ router.get('/oa/init_home', async(ctx, next) => {
     });
     // 生成对应的首字母键值和存储类型，不同部分有不同的part值
 
-    const home_page_data = transed_data.slice(0, 32).map(item => {
+    const home_page_data = transed_data.slice(0, 31).map(item => {
         return `${item.name} ${item.type}`
     });
-    const fee_data = transed_data.slice(32).map(item => {
+    const fee_data = transed_data.slice(31).map(item => {
         return `${item.name} ${item.type}`
     });
+
     // 将此数组转换为键值-类型
 
     home_page_data.unshift(`part1_pid INT unsigned not null auto_increment`);
     home_page_data.push('PRIMARY KEY (part1_pid)');
-    fee_data.unshift(home_page_data[1]);
-    fee_data.push(`PRIMARY KEY (part1_bah)`);
+    fee_data.unshift(`part2_pid INT unsigned not null auto_increment`);
+    fee_data.push(`PRIMARY KEY (part2_pid)`);
+    fee_data.push('INDEX BAH (part2_bah)');
     const home_sql = `CREATE TABLE IF NOT EXISTS SECOND_HOME (${home_page_data.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
     const fee_sql = `CREATE TABLE IF NOT EXISTS SECOND_FEE (${fee_data.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
     // 处理生成存储语句
@@ -256,7 +261,41 @@ router.get('/oa/init_home', async(ctx, next) => {
  });
 
  router.get('/oa/load_home_2', async(ctx, next) => {
-    const home_data =  fs.readFileSync(path.join(__dirname, '../data/second_home_data_format.xlsx'));
+     const home_data =  fs.readFileSync(path.join(__dirname, '../data/second_data/home_new.xlsx'));
+     // 获取新首页数据
+
+     let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/second_data/home_old.csv') , {encoding: 'binary'}), 'binary');
+     let csv_file = iconv.decode(csv_buffer, 'utf8');
+     const options = {
+         delimiter: ',',
+         quote: '"'
+     };
+     // 获取老首页数据
+
+     const home_data_old = csv.toObject(csv_file, options);
+     const Key_section = home_data_old[0];
+
+     const home_key_old = Object.keys(Key_section).map(item => {
+         const key = `part1_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return key.split(',').join('');
+     });
+     // 根据老首页数据title生成拼音键值
+
+     const home_db_data = [];
+
+     home_data_old.forEach(item => {
+         const data_item = [];
+         Object.keys(Key_section).forEach(key => {
+             if (key === '性别') {
+                 data_item.push(item[key] === '男' ? 1 : 2);
+             } else {
+                 data_item.push(item[key]);
+             }
+         });
+         home_db_data.push(data_item);
+     });
+     // 进行性别值的映射
+
      const json_home_data = xlsx.parse(home_data)[0].data;
      const json_fee_data = xlsx.parse(home_data)[1].data;
      const home_key = json_home_data[0].map(item => {
@@ -267,28 +306,85 @@ router.get('/oa/init_home', async(ctx, next) => {
          const key = `part2_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
          return key.split(',').join('');
      });
-     fee_key[0] = 'part1_bah';
      // 存储数据前，先整理出所有数据对应的键值，并对特殊情况进行处理，如费用表中的主键part1_bah
 
      const sql_home = `INSERT INTO SECOND_HOME (${home_key.join(',')}) VALUES ?`;
      const sql_fee = `INSERT INTO SECOND_FEE (${fee_key.join(',')}) VALUES ?`;
-     const save_home_data = json_home_data.slice(1, 20);
-     const save_fee_data = json_fee_data.slice(1, 20);
+     const sql_home_old = `INSERT INTO SECOND_HOME (${home_key_old.join(',')}) VALUES ?`;
+     const save_home_data = json_home_data.slice(1);
+     const save_fee_data = json_fee_data.slice(1);
      save_home_data.forEach(item => {
-         if (item.length === 31)
+         if (item.length === 30)
          item.push('-');
      });
      // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
 
      const home_db = await db.query(sql_home, [save_home_data]);
      const fee_db = await db.query(sql_fee, [save_fee_data]);
-     Promise.all([home_db,fee_db]).then((res) => {
+     const home_db_old = await db.query(sql_home_old, [home_db_data]);
+
+     Promise.all([home_db,fee_db, home_db_old]).then((res) => {
          ctx.body = {status: '首页与费用数据导入成功'}
      }).catch((e) => {
          console.log(e);
          ctx.body = {status: '导入失败'};
      })
  });
+
+ router.get('/oa/init_lis_2', async (ctx, next) => {
+     const old_lis = fs.readFileSync(path.join(__dirname, '../data/second_data/lis/lis-old.xls'));
+     const old_lis_example = xlsx.parse(old_lis)[0].data;
+     const keys = old_lis_example[0];
+     const types = second_Type.type.lis_type;
+     const sql_array = [];
+     keys.forEach((item, index) => {
+         sql_array.push(`part3_${item} ${types[index]}`)
+     });
+
+     sql_array.unshift('part3_pid INT unsigned not null auto_increment');
+     sql_array.push('PRIMARY KEY (part3_pid)');
+     sql_array.push('INDEX BAH (part3_OUTPATIENT_ID)');
+
+     const sql_string = `CREATE TABLE IF NOT EXISTS SECOND_LIS (${sql_array.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+     await db.query(sql_string).then(res => {
+         ctx.body = {
+             status: '二附院LIS数据建表成功'
+         }
+     }).catch(e => {
+         ctx.body = {
+             status: '二附院LIS数据建表失败'
+         }
+     })
+ });
+
+
+router.get('/oa/load_oldlis_2', async (ctx, next) => {
+    const old_lis = fs.readFileSync(path.join(__dirname, '../data/second_data/lis/lis-old.xls'));
+    const old_lis_data = xlsx.parse(old_lis)[0].data.concat(xlsx.parse(old_lis)[1].data.slice(1));
+    const key_array = [];
+    old_lis_data[0].forEach(item => {
+        key_array.push(`part3_${item}`);
+    });
+    old_lis_data.forEach((item, index) => {
+        if(item.length < 11) {
+            item.push(null);
+        }
+    });
+    const sql_string = `INSERT INTO SECOND_LIS (${key_array.join(',')}) VALUES ?`;
+    await db.query(sql_string, [old_lis_data.slice(1)]).then(res => {
+        ctx.body= {
+            status: '二附院老LIS数据导入成功'
+        }
+    }).catch(e => {
+        console.log(Object.keys(e));
+        console.log(e.code, e.errno, e.sqlMessage);
+        ctx.body= {
+            status: '二附院老LIS数据导入失败'
+        }
+    })
+});
+// 导入老LIS数据
+
 
 generateType = (type) => {
     switch (type) {

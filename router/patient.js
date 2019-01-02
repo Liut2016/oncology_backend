@@ -115,4 +115,40 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
     });
 });
 
+
+//post方法实现二附院所有病人病案首页信息分页
+router.post('/oa/patients2',async (ctx, next) =>{
+    var pagesize = parseInt(ctx.request.body.pagesize);
+    var pageindex = parseInt(ctx.request.body.pageindex);
+    //var start = (pageindex-1) * pagesize;
+    var start = pageindex -1;
+    let sql1 = `SELECT * FROM SECOND_HOME limit ${start},${pagesize};`;
+    let sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;';
+    //console.log(sql1);
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    Promise.all([part1, part2]).then((res) => {
+        num = res[1][0]['COUNT(*)'];
+        data = res[0];
+        //Utils.cleanData(res);
+        ctx.body = {...Tips[0],count_num:num,data:data};
+
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e}
+    })
+
+});
+
+//二附院根据表名和字段名提取该字段的所有数据
+router.get('/oa/patients2/:table/:key',async(ctx,next) => {
+    let params = ctx.params;
+    let {table,key} = params;
+    const sql = `select part1_pid,${key} from ${table};`;
+    await db.query(sql).then(res => {
+        //Utils.cleanData(res);
+        ctx.body = {...Tips[0], data: res}
+    }).catch(e => {
+        ctx.body = {...Tips[1002], reason: e}
+    })
+});
 module.exports = router;

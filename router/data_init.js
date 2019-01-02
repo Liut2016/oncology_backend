@@ -272,8 +272,11 @@ router.get('/oa/init_home', async(ctx, next) => {
 
      const sql_home = `INSERT INTO SECOND_HOME (${home_key.join(',')}) VALUES ?`;
      const sql_fee = `INSERT INTO SECOND_FEE (${fee_key.join(',')}) VALUES ?`;
-     const save_home_data = json_home_data.slice(1, 20);
-     const save_fee_data = json_fee_data.slice(1, 20);
+     //const save_home_data = json_home_data.slice(1, 20);
+     //const save_fee_data = json_fee_data.slice(1, 20);
+     // 需要把第0条（字段名）去掉
+     const save_home_data = json_home_data.slice(1);
+     const save_fee_data = json_fee_data.slice(1,20);
      save_home_data.forEach(item => {
          if (item.length === 31)
          item.push('-');

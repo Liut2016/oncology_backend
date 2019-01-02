@@ -3,6 +3,12 @@ const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
 
+const basic_conditions = {
+    patientID: 'part1_zylsh',
+    patientName: 'part1_xm',
+    Disease: 'part1_zzd'
+};
+
 router.get('/oa/patients' ,async (ctx, next) => {
     let sql = 'SELECT * FROM PART1;';
     await db.query(sql).then(res => {
@@ -44,7 +50,7 @@ router.get('/oa/patients_2' ,async (ctx, next) => {
     let sql = 'SELECT part1_pid, part1_bah, part1_xm, part1_nl, part1_xb, part1_cysj FROM SECOND_HOME;';
     await db.query(sql).then(res => {
         Utils.cleanData(res);
-        ctx.body = {...Tips[0], data: res}
+        ctx.body = {...Tips[0], data: res.slice(0, 10)}
     }).catch(e => {
         ctx.body = {...Tips[1002], reason: e}
     })
@@ -78,10 +84,18 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
 router.post('/oa/patients1/',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
-    //var start = (pageindex-1) * pagesize;
-    var start = pageindex -1;
-    let sql1 = `SELECT * FROM FIRST_HOME limit ${start},${pagesize};`;
-    let sql2 = 'SELECT COUNT(*) FROM FIRST_HOME;';
+
+    var conditions = ctx.request.body.condition;
+    const condition_array = [];
+    Object.keys(conditions).forEach(key => {
+        if (conditions[key] !== '') {
+            condition_array.push(`${basic_conditions[key]} = '${conditions[key]}'`);
+        }
+    });
+    const condition_sql = 'WHERE ' + condition_array.join(' AND ');
+    const start = (pageindex-1) * pagesize;
+    let sql1 = `SELECT * FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
+    let sql2 = `SELECT COUNT(*) FROM FIRST_HOME ${condition_array.length === 0 ? '' :condition_sql};`;
     //console.log(sql1);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);

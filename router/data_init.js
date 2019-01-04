@@ -8,7 +8,6 @@ const csv = require('csvjson');
 const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
 const second_Type = require('../db/second_affiliated');
-const part_xlsx = require('xlsx-extract').XLSX;
 
 const type = Type.type;
 const sec_type = second_Type.type;

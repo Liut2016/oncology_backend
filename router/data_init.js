@@ -8,6 +8,7 @@ const csv = require('csvjson');
 const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
 const second_Type = require('../db/second_affiliated');
+const part_xlsx = require('xlsx-extract').XLSX;
 
 const type = Type.type;
 const sec_type = second_Type.type;
@@ -384,6 +385,46 @@ router.get('/oa/load_oldlis_2', async (ctx, next) => {
     })
 });
 // 导入老LIS数据
+
+router.get('/oa/load_newlis_2', async (ctx, next) => {
+    let key_array = [];
+    const promise_all = [];
+    for (let i = 1; i < 18; i ++) {
+        const new_lis = fs.readFileSync(path.join(__dirname, `../data/second_data/lis/lis-new/Sheet ${i}.xlsx`));
+        const new_lis_data = xlsx.parse(new_lis)[0].data.slice(1);
+        if (key_array.length === 0) {
+            const keys = xlsx.parse(new_lis)[0].data[0];
+            keys.forEach(item => {
+                key_array.push(`part3_${item}`)
+            });
+        }
+        new_lis_data.forEach((item, index) => {
+            if(item.length < 11) {
+                for (let i = 0; i< 11 - item.length; i++)
+                {
+                    item.push(null);
+                }
+            }
+        });
+        const sql_string = `INSERT INTO SECOND_LIS (${key_array.join(',')}) VALUES ?`;
+        const loading = await db.query(sql_string, [new_lis_data]);
+        promise_all.push(loading);
+        console.log(`part${i} loaded, length = ${new_lis_data.length}`);
+    }
+    console.log('数据读取完毕，正在载入数据库', `请求数${promise_all.length}`);
+    Promise.all(promise_all).then(res => {
+        console.log('二附院新LIS数据导入成功');
+        ctx.body= {
+            status: '二附院老LIS数据导入成功'
+        }
+    }).catch(e => {
+        console.log(Object.keys(e));
+        console.log(e.code, e.errno, e.sqlMessage);
+        ctx.body= {
+            status: '二附院新LIS数据导入失败'
+        }
+    })
+});
 
 
 generateType = (type) => {

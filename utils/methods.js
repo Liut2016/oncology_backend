@@ -5,6 +5,7 @@ const strtotime = require('locutus/php/datetime/strtotime');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const db = require('../db/index');
 let util = {
     formatData(params, valids) {
         let res = true;
@@ -125,6 +126,18 @@ let util = {
             }
         });
         return type;
+    },
+
+    completeRow(data, max_length, set_value) {
+        data.forEach(item => {
+            if (item.length < max_length) {
+                let length = max_length - item.length;
+                for (let i = 0; i < length; i ++) {
+                    item.push(set_value);
+                }
+            }
+        });
+        return data;
     }
 };
 

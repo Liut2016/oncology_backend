@@ -8,6 +8,7 @@ const csv = require('csvjson');
 const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
 const second_Type = require('../db/second_affiliated');
+const Utils = require('../utils/methods');
 
 const type = Type.type;
 const sec_type = second_Type.type;
@@ -60,12 +61,12 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
  }
 
 
-// 一附院病案首页表建立
-router.get('/oa/init_home', async(ctx, next) => {
+ // 一附院病案首页表建立
+ router.get('/oa/init_home', async(ctx, next) => {
     const home_page_type = type.home_page_type;
     home_page_type.unshift('INT unsigned not null auto_increment');
 
-    const home_data = fs.readFileSync(path.join(__dirname, '../data/first_home_page.xls'));
+    const home_data = fs.readFileSync(path.join(__dirname, '../data/first_data/first_home_page.xls'));
     const json_data = xlsx.parse(home_data);
     const original_title = json_data[0].data[0];
     original_title.shift();
@@ -93,7 +94,7 @@ router.get('/oa/init_home', async(ctx, next) => {
 
  // 一附院病案首页数据载入
  router.get('/oa/load_home', async(ctx, next) => {
-     const home_data = fs.readFileSync(path.join(__dirname, '../data/first_home_page.xls'));
+     const home_data = fs.readFileSync(path.join(__dirname, '../data/first_data/first_home_page.xls'));
      const json_data = xlsx.parse(home_data, {cellDates: true})[0].data;
      const title_array = [];
      json_data[0].shift();
@@ -116,7 +117,7 @@ router.get('/oa/init_home', async(ctx, next) => {
 
  router.get('/oa/init_advice', async(ctx, next) => {
      const types = type.advice_page_type;
-     let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_home_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
+     let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_data/first_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
      let csv_file = iconv.decode(csv_buffer, 'GBK');
      const options = {
          delimiter: ',',
@@ -144,10 +145,10 @@ router.get('/oa/init_home', async(ctx, next) => {
      const buffer_array = [];
      for (let i = 1 ;i <6; i++) {
          console.log(`reading file ${i}`);
-         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, `../data/first_home_advice/advice${i}.csv`) , {encoding: 'binary'}), 'binary');
+         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, `../data/first_data/first_advice/advice${i}.csv`) , {encoding: 'binary'}), 'binary');
          buffer_array.push(csv_buffer);
      }
-     // let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_home_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
+     // let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
      const decode_file = buffer_array.map(buffer => iconv.decode(buffer, 'GBK'));
      //let csv_file = iconv.decode(csv_buffer, 'GBK');
      const options = {
@@ -155,7 +156,6 @@ router.get('/oa/init_home', async(ctx, next) => {
          quote: '"'
      };
      const allData =  decode_file.map(file => csv.toObject(file, options));
-     // const data = [...allData[0], ...allData[1],...allData[2],...allData[3],...allData[4]];
      const data = [...allData[0]];
      const advice_item = [];
      Object.keys(data[0]).forEach((item) => {
@@ -179,10 +179,6 @@ router.get('/oa/init_home', async(ctx, next) => {
          values.push(part);
      });
 
-     console.log(values.length);
-     console.log(values[0].length, values[1].length, values[2].length, values[3].length, values[4].length);
-     console.log(process.memoryUsage());
-
      const sql = `INSERT INTO FIRST_ADVICE (${advice_item.join(',')}) VALUES ?`;
      const part1 = await db.query(sql, [values[0]]);
      const part2 = await db.query(sql, [values[1]]);
@@ -201,6 +197,143 @@ router.get('/oa/init_home', async(ctx, next) => {
          }
      })
  });
+
+ router.get('/oa/init_lis', async (ctx, next) => {
+     const types = type.lis_page_type;
+     const lis_item = [];
+     let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_data/first_lis/1.csv') , {encoding: 'binary'}), 'binary');
+     let csv_file = iconv.decode(csv_buffer, 'gbk');
+     const options = {
+         delimiter: ',',
+         quote: '"'
+     };
+     const key_section = csv.toObject(csv_file, options)[0];
+     Object.keys(key_section).forEach((item, index) => {
+         let key = `part3_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         lis_item.push(`${key.split(',').join('')} ${types[index]}`);
+     });
+     lis_item.unshift('part3_pid INT unsigned not null auto_increment');
+     lis_item.push('PRIMARY KEY (part3_pid)');
+     lis_item.push('INDEX ZYLSH (part3_zylsh(14))');
+     const sql = `CREATE TABLE IF NOT EXISTS FIRST_LIS (${lis_item.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+     await db.query(sql).then(res => {
+         console.log('建表成功');
+     }).catch(e => {
+         console.log(e);
+         console.log('建表失败');
+     });
+
+     const promise_all = [];
+     const keys = Object.keys(key_section).map((item) => {
+         let key = `part3_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return `${key.split(',').join('')}`;
+     });
+
+     for (let i = 1; i<6; i++) {
+         const old_lis = fs.readFileSync(path.join(__dirname, `../data/first_data/first_lis/${i}.xlsx`));
+         const old_lis_example = xlsx.parse(old_lis, {cellDates: true})[0].data.slice(1);
+         const completed_data = Utils.completeRow(old_lis_example, 10, null);
+         const sql_string = `INSERT INTO FIRST_LIS (${keys.join(',')}) VALUES ?`;
+         const loading = await db.query(sql_string, [completed_data]);
+         promise_all.push(loading);
+         console.log(`part_${i} loaded, promise=${promise_all.length}`);
+     }
+
+     Promise.all(promise_all).then(res => {
+         console.log('一附院LIS存储成功');
+     }).catch(e => {
+         console.log('一附院LIS存储失败', Object.keys(e));
+     })
+ });
+
+ router.get('/oa/init_mazui', async (ctx, next) => {
+     const mazui = fs.readFileSync(path.join(__dirname, `../data/first_data/first_operation/mazui.xls`));
+     const mazui_type = type.operation_mazui_type;
+     const mazui_key = xlsx.parse(mazui, {cellDates: true})[0].data[0];
+     const mazui_data = xlsx.parse(mazui, {cellDates: true})[0].data.slice(1);
+     mazui_key.shift();
+     const sql_key = mazui_key.map((item, index) => {
+         let key = `part4_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return `${key.split(',').join('')} ${type.generateType(mazui_type[index])}`;
+     });
+     sql_key.unshift('part4_pid INT unsigned not null auto_increment');
+     sql_key.push('PRIMARY KEY (part4_pid)');
+     sql_key.push('INDEX ZYLSH (part4_zylsh(14))');
+     const sql = `CREATE TABLE IF NOT EXISTS FIRST_MAZUI (${sql_key.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+     await db.query(sql).then(res => {
+         console.log('建表成功');
+     }).catch(e => {
+         console.log(e);
+         console.log('建表失败');
+     });
+
+     const db_key = mazui_key.map(item => {
+         let key = `part4_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+         return `${key.split(',').join('')}`;
+     });
+     db_key.unshift('part4_pid');
+     const db_sql = `INSERT INTO FIRST_MAZUI (${db_key.join(',')}) VALUES ?`;
+     const completed_data = Utils.completeRow(mazui_data, 15, null);
+     await db.query(db_sql, [completed_data]).then(res => {
+         console.log('导入成功');
+     }).catch(e => {
+         console.log('导入失败', e.sqlMessage);
+     })
+ });
+
+ router.get('/oa/init_results', async (ctx, next) => {
+    const result = fs.readFileSync(path.join(__dirname, `../data/first_data/first_results/results.xlsx`));
+    const result_type = type.result_type;
+    const result_key = xlsx.parse(result, {cellDates: true})[0].data[0];
+    const result_data = xlsx.parse(result, {cellDates: true})[0].data.slice(1);
+    const sql_key = result_key.map((item, index) => {
+        let key = `part5_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+        return `${key.split(',').join('')} ${type.generateType(result_type[index])}`;
+    });
+    sql_key.unshift('part5_pid INT unsigned not null auto_increment');
+    sql_key.push('PRIMARY KEY (part5_pid)');
+    sql_key.push('INDEX ZYH (part5_zyh)');
+    const sql = `CREATE TABLE IF NOT EXISTS FIRST_RESULTS (${sql_key.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    await db.query(sql).then(res => {
+        console.log('建表成功');
+    }).catch(e => {
+        console.log(e);
+        console.log('建表失败');
+    });
+
+    const db_key = result_key.map(item => {
+        let key = `part5_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+        return `${key.split(',').join('')}`;
+    });
+    const db_sql = `INSERT INTO FIRST_RESULTS (${db_key.join(',')}) VALUES ?`;
+    const completed_data = Utils.completeRow(result_data, 7, null);
+    await db.query(db_sql, [completed_data]).then(res => {
+        console.log('导入成功');
+    }).catch(e => {
+        console.log('导入失败', e.sqlMessage);
+    })
+});
+
+/*router.get('/oa/check_patient', async (ctx, next) => {
+    const name = await db.query('select part1_xm from FIRST_HOME');
+    const name_array = name.map(name => {
+       return name['part1_xm']
+    });
+    console.log('check');
+    let zero_patient = 0;
+    const zero_patient_array = [];
+    name_array.forEach(async (item, index) => {
+        const result = await db.query(`select count(*) from FIRST_LIS where part3_hzxm='${item}'`);
+        console.log(index,'数量=' ,result[0]['count(*)'], zero_patient);
+        if (result[0]['count(*)'] === 0) {
+            zero_patient++;
+            zero_patient_array.push(index);
+        }
+    });
+    console.log(zero_patient);
+});*/
+
+
 
  // 初始化二附院病案首页与费用表
  router.get('/oa/init_home_2', async(ctx, next) => {
@@ -313,13 +446,11 @@ router.get('/oa/init_home', async(ctx, next) => {
      const sql_home_old = `INSERT INTO SECOND_HOME (${home_key_old.join(',')}) VALUES ?`;
      const save_home_data = json_home_data.slice(1);
      const save_fee_data = json_fee_data.slice(1);
-     save_home_data.forEach(item => {
-         if (item.length === 30)
-         item.push('-');
-     });
+
+     const completed_data = Utils.completeRow(save_fee_data, 31, '-');
      // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
 
-     const home_db = await db.query(sql_home, [save_home_data]);
+     const home_db = await db.query(sql_home, [completed_data]);
      const fee_db = await db.query(sql_fee, [save_fee_data]);
      const home_db_old = await db.query(sql_home_old, [home_db_data]);
 
@@ -358,7 +489,7 @@ router.get('/oa/init_home', async(ctx, next) => {
  });
 
 
-router.get('/oa/load_oldlis_2', async (ctx, next) => {
+ router.get('/oa/load_oldlis_2', async (ctx, next) => {
     const old_lis = fs.readFileSync(path.join(__dirname, '../data/second_data/lis/lis-old.xls'));
     const old_lis_data = xlsx.parse(old_lis)[0].data.concat(xlsx.parse(old_lis)[1].data.slice(1));
     const key_array = [];
@@ -385,7 +516,7 @@ router.get('/oa/load_oldlis_2', async (ctx, next) => {
 });
 // 导入老LIS数据
 
-router.get('/oa/load_newlis_2', async (ctx, next) => {
+ router.get('/oa/load_newlis_2', async (ctx, next) => {
     let key_array = [];
     const promise_all = [];
     for (let i = 1; i < 18; i ++) {
@@ -397,18 +528,11 @@ router.get('/oa/load_newlis_2', async (ctx, next) => {
                 key_array.push(`part3_${item}`)
             });
         }
-        new_lis_data.forEach((item, index) => {
-            if(item.length < 11) {
-                for (let i = 0; i< 11 - item.length; i++)
-                {
-                    item.push(null);
-                }
-            }
-        });
+        const completed_data = Utils.completeRow(new_lis_data, 11, null);
         const sql_string = `INSERT INTO SECOND_LIS (${key_array.join(',')}) VALUES ?`;
-        const loading = await db.query(sql_string, [new_lis_data]);
+        const loading = await db.query(sql_string, [completed_data]);
         promise_all.push(loading);
-        console.log(`part${i} loaded, length = ${new_lis_data.length}`);
+        console.log(`part${i} loaded, length = ${completed_data.length}`);
     }
     console.log('数据读取完毕，正在载入数据库', `请求数${promise_all.length}`);
     Promise.all(promise_all).then(res => {
@@ -424,6 +548,7 @@ router.get('/oa/load_newlis_2', async (ctx, next) => {
         }
     })
 });
+
 
 
 generateType = (type) => {

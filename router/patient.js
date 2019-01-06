@@ -153,11 +153,16 @@ router.post('/oa/patients2',async (ctx, next) =>{
 
 });
 
-//二附院根据表名和字段名提取该字段的所有数据
+//给郑莹倩师姐：二附院根据表名和字段名提取该字段的所有数据
 router.get('/oa/patients2/:table/:key',async(ctx,next) => {
     let params = ctx.params;
+    //console.log(params);
     let {table,key} = params;
-    const sql = `select part1_pid,${key} from ${table};`;
+    //console.log(key);
+    if (table === 'SECOND_HOME') id = 'part1_pid';
+    else if (table === 'SECOND_FEE') id = 'part2_pid';
+    else if(table === 'SECOND_LIS') id = 'part3_pid';
+    const sql = `select ${id},${key} from ${table};`;
     await db.query(sql).then(res => {
         //Utils.cleanData(res);
         ctx.body = {...Tips[0], data: res}
@@ -165,4 +170,91 @@ router.get('/oa/patients2/:table/:key',async(ctx,next) => {
         ctx.body = {...Tips[1002], reason: e}
     })
 });
+
+var isnum = function (x) {
+    if(!Number.isNaN(parseFloat(x))) return 'number';
+    else return 'string';
+};
+
+//给郑莹倩师姐：把二附院lis表所有的维度生成json
+router.get('/oa/patients2/lisjson',async(ctx,next) => {
+    const sql = 'SELECT part3_TEST_ORDER_NAME,part3_CHINESE_NAME,part3_QUANTITATIVE_RESULT FROM SECOND_LIS;';
+    await db.query(sql).then(res => {
+        let a = {};
+        
+        res.forEach(function(element){
+            if (!a.hasOwnProperty(element.part3_TEST_ORDER_NAME))
+            {
+                a[element.part3_TEST_ORDER_NAME] = {};
+            }
+            let b = {};
+            b[element.part3_CHINESE_NAME] = isnum(element.part3_QUANTITATIVE_RESULT);
+            Object.assign(a[element.part3_TEST_ORDER_NAME],a[element.part3_TEST_ORDER_NAME],b);
+
+        });
+        ctx.body = {...Tips[0],'一般检查项目': a};
+    }).catch(e => {
+        ctx.body = {...Tips[1002],reason:e};
+    })
+});
+
+//给郑莹倩师姐：根据条件提取lis中的数据
+router.post('/oa/patients2/lis',async(ctx,next) => {
+    let testOrderName = ctx.request.body.testOrderName;
+    let chineseName = ctx.request.body.chineseName;
+    let sql = `SELECT * FROM SECOND_LIS WHERE part3_TEST_ORDER_NAME='${testOrderName}' AND part3_CHINESE_NAME='${chineseName}'`;
+    await db.query(sql).then(res => {
+        ctx.body = {...Tips[0],data:res};
+    }).catch(e => {
+        ctx.body = {...Tips[1002],reason:e};
+    })
+});
+
+//给许靖琴：二附院根据pid获取主页和费用信息
+router.get('/oa/patient2/:pid',async(ctx,next) => {
+    let params = ctx.params;
+    let {pid} = params;
+    
+    let sql1 = `SELECT * FROM SECOND_HOME WHERE part1_pid=${pid};`
+    await db.query(sql1).then(async(res) =>{
+        let bah = res[0]['part1_bah'];
+        let sql2 = `SELECT * FROM SECOND_FEE WHERE part2_bah=${bah};`
+        await db.query(sql2).then(res2 =>{
+            //let data = {};
+            //Object.assign(data,res[0],res2[0]);
+            //console.log(data);
+            ctx.body = {...Tips[0],data_home:res,data_fee:res2};
+        }).catch(e => {
+            ctx.body = {...Tips[1002],reason:e};
+        })
+        //console.log(bah);
+    }).catch(e => {
+        ctx.body = {...Tips[1002],reason:e};
+    })
+    
+});
+
+//给李安：获取二附院特定几列的数据
+router.get('/oa/patients2/dashboard',async(ctx,next) => {
+    let sql = 'SELECT part1_ylfkfs,part1_nl,part1_cssf,part1_csds,part1_ssmc FROM SECOND_HOME;'
+    await db.query(sql).then(res => {
+        let paymentMethod = [];
+        let age = [];
+        let province = [];
+        let city = [];
+        let surgicalName =[];
+        res.forEach(function(element){
+            paymentMethod.push(element.part1_ylfkfs);
+            age.push(element.part1_nl);
+            province.push(element.part1_cssf);
+            city.push(element.part1_csds);
+            surgicalName.push(element.part1_ssmc);
+        });
+        ctx.body = {...Tips[0],paymentMethod:paymentMethod,age:age,province:province,city:city,surgicalName:surgicalName};
+    }).catch(e => {
+        ctx.body = {...Tips[1002],reason:e};
+    })
+});
+
+
 module.exports = router;

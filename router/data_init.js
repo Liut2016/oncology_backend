@@ -353,7 +353,6 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
     filtered_data.splice(0, 2);
     //去掉多余的几行
 
-     console.log(filtered_data[30]);
     let transed_data = filtered_data.map((item,index) => {
         let part = index > 30 ? 'part2' : 'part1';
         let name = `${part}_${PY_translator(item.name, {style: PY_translator.STYLE_FIRST_LETTER})}`;
@@ -375,6 +374,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
     // 将此数组转换为键值-类型
 
     home_page_data.unshift(`part1_pid INT unsigned not null auto_increment`);
+    home_page_data.push(`part1_HIS INT`);
     home_page_data.push('PRIMARY KEY (part1_pid)');
     fee_data.unshift(`part2_pid INT unsigned not null auto_increment`);
     fee_data.push(`PRIMARY KEY (part2_pid)`);
@@ -408,10 +408,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
      const home_data_old = csv.toObject(csv_file, options);
      const Key_section = home_data_old[0];
 
-     const home_key_old = Object.keys(Key_section).map(item => {
-         const key = `part1_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
-         return key.split(',').join('');
-     });
+
      // 根据老首页数据title生成拼音键值
 
      const home_db_data = [];
@@ -429,12 +426,23 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
      });
      // 进行性别值的映射
 
+     const old_fee_data = [];
+     home_db_data.forEach(item => {
+        const fee_item = [];
+        fee_item.push(item[1]);
+        for (let i = 0; i < 21; i ++) {
+            fee_item.push(0);
+        }
+        old_fee_data.push(fee_item);
+     });
+
      const json_home_data = xlsx.parse(home_data)[0].data;
      const json_fee_data = xlsx.parse(home_data)[1].data;
      const home_key = json_home_data[0].map(item => {
          const key = `part1_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
          return key.split(',').join('');
      });
+     home_key.push('part1_HIS');
      const fee_key = json_fee_data[0].map(item => {
          const key = `part2_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
          return key.split(',').join('');
@@ -443,18 +451,20 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
 
      const sql_home = `INSERT INTO SECOND_HOME (${home_key.join(',')}) VALUES ?`;
      const sql_fee = `INSERT INTO SECOND_FEE (${fee_key.join(',')}) VALUES ?`;
-     const sql_home_old = `INSERT INTO SECOND_HOME (${home_key_old.join(',')}) VALUES ?`;
-     const save_home_data = json_home_data.slice(1);
-     const save_fee_data = json_fee_data.slice(1);
 
-     const completed_data = Utils.completeRow(save_fee_data, 31, '-');
+     const save_home_data = home_db_data.concat(json_home_data.slice(1));
+     const save_fee_data = old_fee_data.concat(json_fee_data.slice(1));
+     const completed_data = Utils.completeRow(save_home_data, 31, '-');
      // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
+
+     completed_data.forEach((item, index)=> {
+         item.push( index > 1928 ? 1 : 0 );
+     });
 
      const home_db = await db.query(sql_home, [completed_data]);
      const fee_db = await db.query(sql_fee, [save_fee_data]);
-     const home_db_old = await db.query(sql_home_old, [home_db_data]);
 
-     Promise.all([home_db,fee_db, home_db_old]).then((res) => {
+     Promise.all([home_db,fee_db]).then((res) => {
          ctx.body = {status: '首页与费用数据导入成功'}
      }).catch((e) => {
          console.log(e);

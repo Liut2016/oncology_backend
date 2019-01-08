@@ -210,7 +210,7 @@ router.post('/oa/patients2/lis',async(ctx,next) => {
     })
 });
 
-//给许靖琴：二附院根据pid获取主页和费用信息
+//给许靖琴：二附院根据pid获取主页、费用和Lis信息
 router.get('/oa/patient2/:pid',async(ctx,next) => {
     let params = ctx.params;
     let {pid} = params;
@@ -218,18 +218,18 @@ router.get('/oa/patient2/:pid',async(ctx,next) => {
     let sql1 = `SELECT * FROM SECOND_HOME WHERE part1_pid=${pid};`
     await db.query(sql1).then(async(res) =>{
         let bah = res[0]['part1_bah'];
-        let sql2 = `SELECT * FROM SECOND_FEE WHERE part2_bah=${bah};`
-        await db.query(sql2).then(res2 =>{
-            //let data = {};
-            //Object.assign(data,res[0],res2[0]);
-            //console.log(data);
-            ctx.body = {...Tips[0],data_home:res,data_fee:res2};
-        }).catch(e => {
+        let sql2 = `SELECT * FROM SECOND_FEE WHERE part2_bah=${bah};`;
+        let sql3 = `SELECT * FROM SECOND_LIS WHERE part3_OUTPATIENT_ID=${bah};`;
+
+        const part1 = await db.query(sql2);
+        const part2 = await db.query(sql3);
+        Promise.all([part1,part2]).then((res2) => {
+            //console.log(res2);
+
+            ctx.body = {...Tips[0],data_home:res,data_fee:res2[0],data_lis:Utils.generateCategory(res2[1],'part3_TEST_ORDER_NAME')};
+        }).catch((e) => {
             ctx.body = {...Tips[1002],reason:e};
         })
-        //console.log(bah);
-    }).catch(e => {
-        ctx.body = {...Tips[1002],reason:e};
     })
     
 });

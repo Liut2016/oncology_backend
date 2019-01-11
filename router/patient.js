@@ -85,11 +85,11 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     var pageindex = parseInt(ctx.request.body.pageindex);
     var conditions = ctx.request.body.condition;
     const condition_array = [];
-    Object.keys(conditions).forEach(key => {
+    /*Object.keys(conditions).forEach(key => {
         if (conditions[key] !== '') {
             condition_array.push(`${basic_conditions[key]} = '${conditions[key]}'`);
         }
-    });
+    });*/
     const condition_sql = 'WHERE ' + condition_array.join(' AND ');
     const start = (pageindex-1) * pagesize;
     let sql1 = `SELECT * FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;

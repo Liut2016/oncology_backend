@@ -559,7 +559,45 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
     })
 });
 
+router.get('/oa/generate_json_2', async(ctx, next) => {
+    const home_data = fs.readFileSync(path.join(__dirname, '../data/second_data/second_home_key.xlsx'));
+    const json_data = xlsx.parse(home_data)[0].data;
+    const filtered_data = [];
+    json_data.forEach(item => {
+        if (item.length !== 0) {
+            filtered_data.push({
+                name: item[0],
+                type: item[1]
+            })
+        }
+    });
+    // 从键值表second_home_key中，拿出数据字段名称与类型
 
+    filtered_data.splice(0, 2);
+    //去掉多余的几行
+
+    let transed_data = filtered_data.map((item,index) => {
+        let part = index > 30 ? 'part2' : 'part1';
+        let name = `${part}_${PY_translator(item.name, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+        let format_name = name.split(',').join('');
+        return {
+            type: generateType(item.type),
+            text: item.name,
+            _key: format_name
+        };
+    });
+    // 生成对应的首字母键值和存储类型，不同部分有不同的part值
+
+    const home_page_data = transed_data.slice(0, 31);
+    const fee_data = transed_data.slice(31);
+    const data = {
+        'part1': home_page_data,
+        'part2': fee_data
+    };
+    fs.writeFileSync(path.join(__dirname, '../generate/hos_2.json'), JSON.stringify(data));
+    // 将此数组转换为键值-类型
+
+});
 
 generateType = (type) => {
     switch (type) {

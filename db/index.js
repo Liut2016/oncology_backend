@@ -1,4 +1,5 @@
 const mysql = require('mysql');
+const esearch = require('elasticsearch');
 let config = {
     host: 'localhost',
     user: 'root',
@@ -7,6 +8,13 @@ let config = {
     port: 3306,
     multipleStatements: true,
 };
+let es = () => {
+   return new esearch.Client({
+        host: 'localhost:9200/es_first_results',
+        log: 'trace'
+    });
+};
+
 let pool = mysql.createPool(config);
 let query = (sql, values) => {
 
@@ -28,5 +36,6 @@ let query = (sql, values) => {
   })
 };
 module.exports = {
-    query
+    query,
+    es
 };

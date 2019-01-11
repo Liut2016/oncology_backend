@@ -2,6 +2,7 @@ const router = require('koa-router')();
 const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
+const _ = require('lodash');
 
 const basic_conditions = {
     patientID: 'part1_zylsh',
@@ -112,20 +113,79 @@ router.post('/oa/patients1/',async (ctx, next) =>{
 
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-    let params = ctx.params;
-    let {pid, zyh} = params;
-    const home_sql = `select * from FIRST_HOME where part1_pid = ${pid}`;
-    const advice_sql = `select * from FIRST_ADVICE where part2_zyh = '${zyh}'`;
-    const home_part = await db.query(home_sql);
-    const advice_part = await db.query(advice_sql);
-    Promise.all([home_part, advice_part]).then(res => {
-        res[1].forEach(item => {
-            delete item['part2_pid'];
-        });
-        ctx.body = {...Tips[0], data: {home: res[0], advice: Utils.generateCategory(res[1], 'part2_yzlb')}}
+
+    let {pid, zyh} = ctx.params;
+    await queryPatient(pid, zyh).then((res) => {
+        ctx.body = {
+            ...Tips[0],
+            data: {
+                home: res[0],
+                advice: Utils.generateCategory(res[1], 'part2_yzlb'),
+                lis: Utils.generateCategory(res[2], 'part3_xmmc'),
+                mazui: res[3],
+                results: Utils.generateCategory(res[4], 'part5_jclb')
+            }
+        }
     }).catch(e => {
-        ctx.body = {...Tips[1002], reason:e}
+        ctx.body = {
+            ...Tips[1002],
+            error: e
+        }
+    })
+});
+
+router.get('/oa/es_list/', async (ctx, next) => {
+    let {query} = ctx.query;
+    const related_zyh = [];
+    await db.es().search({
+        body: {
+            highlight: {
+                require_field_match: false,
+                fields: {
+                    "*": {}
+                }
+            },
+            query: {
+                query_string: {
+                    query: query
+                }
+            }
+        },
+        _source: [
+            'part5_zyh'
+        ]
+    }).then(async (res)=> {
+
+        res['hits']['hits'].forEach(item => {
+            related_zyh.push(item._source['part5_zyh']);
+        });
+
+        const uniq_zyh = _.uniq(related_zyh);
+        await queryHome(uniq_zyh).then(res => {
+            ctx.body = {status: res};
+        }).catch(e => {
+            ctx.body = {status: e}
+        })
+    }).catch(e => {
+        console.log(e);
+        console.log('es down');
     });
 });
+
+async function queryHome(zyh_array) {
+    const zyh = zyh_array.join(',');
+    const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
+    return db.query(`SELECT ${home_fields.join(',')} FROM FIRST_HOME WHERE part1_zyh IN (${zyh})`);
+}
+
+async function queryPatient(id, lsh) {
+    const zyh = lsh.substr(7, 7);
+    const home_data = db.query(`SELECT * FROM FIRST_HOME WHERE part1_pid = ${id}`);
+    const advice_data = db.query(`SELECT * FROM FIRST_ADVICE WHERE part2_zyh = '${lsh}'`);
+    const lis_data = db.query(`SELECT * FROM FIRST_LIS WHERE part3_zylsh = '${lsh}'`);
+    const mazui_data = db.query(`SELECT * FROM FIRST_MAZUI WHERE part4_zylsh = '${lsh}'`);
+    const results_data = db.query(`SELECT * FROM FIRST_RESULTS WHERE part5_zyh = ${zyh}`);
+    return await Promise.all([home_data, advice_data, lis_data, mazui_data, results_data]);
+}
 
 module.exports = router;

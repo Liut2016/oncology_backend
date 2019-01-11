@@ -1,0 +1,271 @@
+{
+  "part1": [
+    {
+      "type": "INT",
+      "text": "病案号",
+      "_key": "part1_bah"
+    },
+    {
+      "type": "INT",
+      "text": "住院次数",
+      "_key": "part1_zycs"
+    },
+    {
+      "type": "INT",
+      "text": "医疗付款方式",
+      "_key": "part1_ylfkfs"
+    },
+    {
+      "type": "VARCHAR(300)",
+      "text": "姓名",
+      "_key": "part1_xm"
+    },
+    {
+      "type": "VARCHAR(60)",
+      "text": "出生日期",
+      "_key": "part1_csrq"
+    },
+    {
+      "type": "INT",
+      "text": "年龄",
+      "_key": "part1_nl"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "体重",
+      "_key": "part1_tz"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "身高",
+      "_key": "part1_sg"
+    },
+    {
+      "type": "INT",
+      "text": "性别",
+      "_key": "part1_xb"
+    },
+    {
+      "type": "VARCHAR(300)",
+      "text": "现住址",
+      "_key": "part1_xzz"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出生省份",
+      "_key": "part1_cssf"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出生地市",
+      "_key": "part1_csds"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出生地县",
+      "_key": "part1_csdx"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "职业",
+      "_key": "part1_zy"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "民族",
+      "_key": "part1_mz"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "患者联系电话",
+      "_key": "part1_hzlxdh"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "联系人姓名",
+      "_key": "part1_lxrxm"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "联系人电话",
+      "_key": "part1_lxrdh"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "入院病室",
+      "_key": "part1_rybs"
+    },
+    {
+      "type": "VARCHAR(60)",
+      "text": "入院时间",
+      "_key": "part1_rysj"
+    },
+    {
+      "type": "VARCHAR(300)",
+      "text": "入院诊断",
+      "_key": "part1_ryzd"
+    },
+    {
+      "type": "VARCHAR(60)",
+      "text": "出院时间",
+      "_key": "part1_cysj"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出院诊断1",
+      "_key": "part1_cyzd1"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出院诊断2",
+      "_key": "part1_cyzd2"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "出院诊断3",
+      "_key": "part1_cyzd3"
+    },
+    {
+      "type": "INT",
+      "text": "实际住院天数",
+      "_key": "part1_sjzyts"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "病理号",
+      "_key": "part1_blh"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "病理诊断",
+      "_key": "part1_blzd"
+    },
+    {
+      "type": "VARCHAR(60)",
+      "text": "手术日期",
+      "_key": "part1_ssrq"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "手术名称",
+      "_key": "part1_ssmc"
+    },
+    {
+      "type": "VARCHAR(120)",
+      "text": "麻醉方式",
+      "_key": "part1_mzfs"
+    }
+  ],
+  "part2": [
+    {
+      "type": "INT",
+      "text": "病案号",
+      "_key": "part2_bah"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "住院总费用",
+      "_key": "part2_zyzfy"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "一般医疗服务费",
+      "_key": "part2_ybylfwf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "一般治疗操作费",
+      "_key": "part2_ybzlczf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "护理费",
+      "_key": "part2_hlf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "综合医疗服务类其他费用",
+      "_key": "part2_zhylfwlqtfy"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "病理诊断费",
+      "_key": "part2_blzdf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "实验室诊断费",
+      "_key": "part2_syszdf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "影像学诊断费",
+      "_key": "part2_yxxzdf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "临床诊断项目费",
+      "_key": "part2_lczdxmf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "非手术治疗项目费",
+      "_key": "part2_fsszlxmf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "手术治疗费",
+      "_key": "part2_sszlf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "麻醉费",
+      "_key": "part2_mzf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "手术费",
+      "_key": "part2_ssf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "康复费",
+      "_key": "part2_kff"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "中医治疗费",
+      "_key": "part2_zyzlf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "西药费",
+      "_key": "part2_xyf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "抗菌药物费用",
+      "_key": "part2_kjywfy"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "中成药费",
+      "_key": "part2_zcyf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "检查用一次性医用材料费",
+      "_key": "part2_jcyycxyyclf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "治疗用一次性医用材料费",
+      "_key": "part2_zlyycxyyclf"
+    },
+    {
+      "type": "DECIMAL(10, 2)",
+      "text": "手术用一次性医用材料费",
+      "_key": "part2_ssyycxyyclf"
+    }
+  ]
+}

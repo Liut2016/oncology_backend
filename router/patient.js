@@ -79,7 +79,6 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
 });
 
 
-
 //post方法实现一附院所有病人病案首页信息分页
 router.post('/oa/patients1/',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
@@ -107,7 +106,6 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e}
     })
-
 });
 
 //通过pid获取一附院病人病案首页信息
@@ -126,6 +124,86 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
     }).catch(e => {
         ctx.body = {...Tips[1002], reason:e}
     });
+});
+
+function unique (arr) {
+    const seen = new Map();
+    return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
+}
+//post方法实现二附院所有病人病案首页信息分页
+router.post('/oa/patients2',async (ctx, next) =>{
+    var pagesize = parseInt(ctx.request.body.pagesize);
+    var pageindex = parseInt(ctx.request.body.pageindex);
+    //var start = (pageindex-1) * pagesize;
+    var start = pageindex -1;
+    var conditions = ctx.request.body.conditions;
+    var searchField = [];
+    var formType = [];
+    var logicValue = [];
+    var where_array = [];
+    var where = ''  ;
+    var set = '';
+    
+    conditions.forEach(item => {
+          searchField.push(item.databaseField);
+          formType.push(item.form_type);
+          logicValue.push(item.logicValue);
+          //字符型查找
+          if ((item.isNotNumber === true) && (item.isSelect === false)) {
+              if (item.selectedValue === '包含') {
+                  where_array.push(`(${item.databaseField} like '%${item.inputValue}%')`);
+              }
+              if (item.selectedValue === '等于') {
+                  where_array.push(`(${item.databaseField} = '${item.inputValue}')`);
+              }
+          }
+          //选择框查找
+          if ((item.isNotNumber === true) && (item.isSelect === true)) {
+  
+              if (item.selectedInt != null) {
+                  where_array.push(`(${item.databaseField} = ${item.selectedInt})`);
+              }else {
+                  where_array.push(`(${item.databaseField} = '${item.selectedValue}')`);
+              }
+          }
+          //次数查找
+          if (item.isNumber === true) {
+              where_array.push(`(${item.databaseField} between ${item.inputValue1} and ${item.inputValue2})`);
+          }
+          //时间查找
+          if (item.isTime === true) {
+              where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
+          }
+    });
+
+    where_array.forEach((item, index) => {
+          if ( index === where_array.length - 1) {
+              where = ` ${where}${item} `;
+          }else {
+              where = ` ${where}${item}  ${logicValue[index + 1]} `;
+          }
+    });
+    
+    // const set  = new Set(this.formType);
+    searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd');
+    // set = searchField.join();
+    let sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
+    console.log(sql1);
+    // let sql1 = `SELECT * FROM SECOND_HOME limit ${start},${pagesize};`;
+    let sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;';
+    //console.log(sql1);
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    Promise.all([part1, part2]).then((res) => {
+        console.log(res);
+        num = res[1][0]['COUNT(*)'];
+        data = res[0];
+        //Utils.cleanData(res);
+        ctx.body = {...Tips[0],count_num:num,data:data};
+
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e}
+    })
 });
 
 module.exports = router;

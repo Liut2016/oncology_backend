@@ -130,6 +130,16 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 });
 
 
+var dateModify = function (x) {
+    let time_init = x.replace(/^\s/,'').split(' ')[0];
+    let [year,month,day] = time_init.split('/');
+    month = month < 10 ? ('0' + month) : month;
+    day = day <10 ? ('0' + day) : day;
+    let time = [year,month,day].join('-');
+    return time;
+    //console.log(element.part1_rysj);
+};
+
 //post方法实现二附院所有病人病案首页信息分页
 router.post('/oa/patients2',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
@@ -145,6 +155,15 @@ router.post('/oa/patients2',async (ctx, next) =>{
         num = res[1][0]['COUNT(*)'];
         data = res[0];
         //Utils.cleanData(res);
+        data.forEach(function(element){
+            if(element.part1_HIS === 0)
+            {
+                element.part1_csrq = dateModify(element.part1_csrq);
+                element.part1_rysj = dateModify(element.part1_rysj);
+                element.part1_cysj = dateModify(element.part1_cysj);
+                //console.log(element.part1_rysj);
+            }
+        });
         ctx.body = {...Tips[0],count_num:num,data:data};
 
     }).catch((e) => {
@@ -220,6 +239,13 @@ router.get('/oa/patient2/:pid',async(ctx,next) => {
         let bah = res[0]['part1_bah'];
         let sql2 = `SELECT * FROM SECOND_FEE WHERE part2_bah=${bah};`;
         let sql3 = `SELECT * FROM SECOND_LIS WHERE part3_OUTPATIENT_ID=${bah};`;
+        
+        res.forEach(function(element){
+            if(element.part1_HIS === 0)
+            {
+                element.part1_csrq = dateModify(element.part1_csrq);
+            }
+        });
 
         const part1 = await db.query(sql2);
         const part2 = await db.query(sql3);
@@ -236,19 +262,103 @@ router.get('/oa/patient2/:pid',async(ctx,next) => {
 
 //给李安：获取二附院特定几列的数据
 router.get('/oa/patients2/dashboard',async(ctx,next) => {
-    let sql = 'SELECT part1_ylfkfs,part1_nl,part1_cssf,part1_csds,part1_ssmc FROM SECOND_HOME;'
+    let sql = 'SELECT part1_HIS,part1_ylfkfs,part1_nl,part1_cssf,part1_csds,part1_ssmc FROM SECOND_HOME;'
     await db.query(sql).then(res => {
         let paymentMethod = [];
         let age = [];
         let province = [];
         let city = [];
         let surgicalName =[];
+        
         res.forEach(function(element){
             paymentMethod.push(element.part1_ylfkfs);
             age.push(element.part1_nl);
-            province.push(element.part1_cssf);
-            city.push(element.part1_csds);
             surgicalName.push(element.part1_ssmc);
+            //console.log(element.part1_HIS);
+            if(element.part1_HIS === 1)
+            {
+                let a = element.part1_cssf;
+                let b = element.part1_csds;
+                if(a != null && a != '-' && !(a.charAt(a.length-1) == '市' && a != '北京市' && a != '上海市' && a != '天津市' && a != '重庆市'))
+                {
+                    province.push(a.replace(/\s+/g,''));
+                } 
+                if(b != null && b.charAt(b.length-1) != '县' 
+                && b.charAt(b.length-1) != '区' 
+                && b != '-' 
+                && b.charAt(b.length-1) != '号' 
+                && b.charAt(b.length-1) != '沟' 
+                && b.charAt(b.length-1) != '乡' 
+                && b.charAt(b.length-1) != '组' 
+                && b != '--' 
+                && b.charAt(b.length-1) != '村'
+                && b != '无'
+                && b != '/')
+                {
+                    city.push(b.replace(/\s+/g,''));
+                }
+                
+            }
+            else 
+            {
+                var reg = /.+?(省|市|自治区|自治州|县|区|乡|镇|村)/g;
+                //var reg1 = /.+?(市|自治州)/g;
+                //var reg2 = /.+?(省|自治区)/g;
+                var reg2 = /.+?(省|市|自治区|自治州)/g;
+                //console.log(element.part1_cssf.match(reg2));
+                let s = element.part1_cssf.match(reg);
+                if(s != null)
+                {
+                    let a = s[0];
+                    let b = s[1];
+                    //console.log(a.slice(a.length-3,a.length));
+                    //console.log(a.charAt(a.length-1));
+                    //console.log(s[0].charAt(str.length-1));
+                    //console.log('a:' + a + 'b:' + b);
+                    if(a.charAt(a.length-1) === '省' || a.slice(a.length-3,a.length) === '自治区' || a === '北京市' || a === '上海市' || a === '天津市' || a === '重庆市')
+                    {
+                        //console.log(a);
+                        province.push(a.replace(/\s+/g,''));
+                    } 
+                    if(a.charAt(a.length-1) === '市' || a.slice(a.length-3,a.length) === '自治州')
+                    {
+                        //console.log(a);
+                        city.push(a.replace(/\s+/g,''));
+                    }
+                    if(b != null)
+                    {
+                        if(b.charAt(b.length-1) === '市' || b.slice(b.length-3,b.length) === '自治州')
+                        {
+                            //console.log(b);
+                            city.push(b.replace(/\s+/g,''));
+                        }
+                    }
+                   
+                }
+                /*
+                if(element.part1_cssf.match(reg1) != null)
+                {
+                    console.log(element.part1_cssf.match(reg1));
+                    let s = element.part1_cssf.match(reg1)[0];
+                    if(s === '北京市' || s === '上海市' || s === '天津市' || s === '重庆市')
+                    {
+                        province.push(s);
+                    }
+                    else if(s.match(reg2) != null)
+                    {
+                        province.push(s.match(reg2)[0]);
+                        city.push(s.match(reg2)[1]);
+                    }
+                    else
+                    {
+                        city.push(s);
+                    }
+                }
+                */
+                //province.push(element.part1_cssf.match(reg)[0]);
+                //city.push(element.part1_cssf.match(reg)[1]);
+                //console.log(element.part1_cssf.match(reg));
+            }
         });
         ctx.body = {...Tips[0],paymentMethod:paymentMethod,age:age,province:province,city:city,surgicalName:surgicalName};
     }).catch(e => {

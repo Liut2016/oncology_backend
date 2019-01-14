@@ -38,14 +38,53 @@ router.get('/oa/patient_2/:hos_pid', async(ctx, next) => {
     });
 });
 
+
+// 将时间字段处理为标准格式
+var dateModify = function (x) {
+    let time_init = x.replace(/^\s/,'').split(' ')[0];
+    let [year,month,day] = time_init.split('/');
+    month = month < 10 ? ('0' + month) : month;
+    day = day <10 ? ('0' + day) : day;
+    let time = [year,month,day].join('-');
+    return time;
+    //console.log(element.part1_rysj);
+};
+
+// 给许靖琴：二附院病案首页信息分页
+router.post('/oa/patients2',async(ctx,next) =>{
+    let pagesize = parseInt(ctx.request.body.pagesize);
+    let pageindex = parseInt(ctx.request.body.pageindex);
+    let start = pageindex -1;
+    let sql1 = `SELECT * FROM SECOND_HOME limit ${start},${pagesize};`
+    let sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    Promise.all([part1,part2]).then((res) => {
+        num = res[1][0]['COUNT(*)'];
+        data = res[0];
+        data.forEach(function(element){
+            if(element.part1_HIS === 0)
+            {
+                element.part1_csrq = dateModify(element.part1_csrq);
+                element.part1_rysj = dateModify(element.part1_rysj);
+                element.part1_cysj = dateModify(element.part1_cysj);
+                //console.log(element.part1_rysj);
+            }
+        });
+        ctx.body = {...Tips[0],count_num:num,data:data};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
 // 二附院病案首页筛选API中使用的去重函数
 function unique (arr) {
     const seen = new Map();
     return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
 }
 
-// post方法实现二附院所有病人病案首页信息分页及筛选
-router.post('/oa/patients2',async (ctx, next) =>{
+// post方法实现二附院所有病人病案首页信息筛选
+router.post('/oa/patients2/filter',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
     //var start = (pageindex-1) * pagesize;
@@ -188,16 +227,7 @@ router.post('/oa/patients2/lis',async(ctx,next) => {
     })
 });
 
-// 将时间字段处理为标准格式
-var dateModify = function (x) {
-    let time_init = x.replace(/^\s/,'').split(' ')[0];
-    let [year,month,day] = time_init.split('/');
-    month = month < 10 ? ('0' + month) : month;
-    day = day <10 ? ('0' + day) : day;
-    let time = [year,month,day].join('-');
-    return time;
-    //console.log(element.part1_rysj);
-};
+
 
 // 给许靖琴：二附院根据pid获取主页、费用和Lis信息
 router.get('/oa/patient2/:pid',async(ctx,next) => {

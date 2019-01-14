@@ -3,8 +3,8 @@ const esearch = require('elasticsearch');
 let config = {
     host: 'localhost',
     user: 'root',
-    password: '1994311',
-    database: 'project',
+    password: 'liutao',
+    database: 'oncology',
     port: 3306,
     multipleStatements: true,
 };

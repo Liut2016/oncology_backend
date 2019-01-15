@@ -4,6 +4,11 @@ const Tips = require('../utils/tips');
 const db = require('../db/index');
 const _ = require('lodash');
 
+const form = {
+    病案首页: 'SECOND_HOME',
+    费用明细: 'SECOND_FEE',
+}
+
 // 查询每一名病人的pid、病案号、姓名、年龄、性别、出院时间
 router.get('/oa/patients_2' ,async (ctx, next) => {
     let sql = 'SELECT part1_pid, part1_bah, part1_xm, part1_nl, part1_xb, part1_cysj FROM SECOND_HOME;';
@@ -83,11 +88,10 @@ function unique (arr) {
     return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
 }
 
-// post方法实现二附院所有病人病案首页信息筛选
+// post方法实现二附院所有病人病案首页信息过滤分页
 router.post('/oa/patients2/filter',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
-    //var start = (pageindex-1) * pagesize;
     var start = pageindex -1;
     var conditions = ctx.request.body.conditions;
     var searchField = [];
@@ -99,8 +103,14 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
     
     conditions.forEach(item => {
           searchField.push(item.databaseField);
-          formType.push(item.form_type);
           logicValue.push(item.logicValue);
+        Object.keys(form).forEach( i => {
+            if(i === item.form_type){
+                formType.push(form[i]);
+            }
+        })
+        //console.log(formType);
+          
           //字符型查找
           if ((item.isNotNumber === true) && (item.isSelect === false)) {
               if (item.selectedValue === '包含') {
@@ -136,33 +146,52 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
               where = ` ${where}${item}  ${logicValue[index + 1]} `;
           }
     });
-    
-    // const set  = new Set(this.formType);
-    searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd');
-    // set = searchField.join();
-    let sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
-    console.log(sql1);
-    // let sql1 = `SELECT * FROM SECOND_HOME limit ${start},${pagesize};`;
-    // let sql1 = `SELECT * FROM SECOND_HOME limit ${start},${pagesize};`;
+    let sql1;
+    let sql2;
+    if(conditions.length!=0){
+        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd');
+        sql1 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)} limit ${start},${pagesize};`;
+        sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)}`;
+    }else{
+        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd FROM SECOND_HOME limit ${start},${pagesize};`
+        sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
+    }
 
-    let sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;';
-    //console.log(sql1);
+   //console.log(sql1);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
-        num = res[1][0]['COUNT(*)'];
+        //console.log(res);
         data = res[0];
+        data.forEach(element => {
+                Object.keys(element).forEach( item=>{
+                    if (item === 'part1_xb') {
+                        if(element[item]=1){
+                            element[item]='男';
+                        } 
+                        if(element[item]=2){
+                            element[item]='女';
+                        };
+                    }
+                })
+             })
+        if(conditions.length!=0){
+            num = res[1].length;
+            // data.forEach(element => {
+            //     Object.keys(element).forEach( item=>{
+            //         if ((item !== 'part1_xm') && (item !== 'part1_bah') && (item !== 'part1_rysj') && (item !== 'part1_ryzd')) {
+            //             delete element.item;
+            //         }
+            //     })
+            // })
+        }else{
+            num = res[1][0]['COUNT(*)'];
+        }
+        //console.log(num);
+        
         //Utils.cleanData(res);
-        data.forEach(function(element){
-            if(element.part1_HIS === 0)
-            {
-                element.part1_csrq = dateModify(element.part1_csrq);
-                element.part1_rysj = dateModify(element.part1_rysj);
-                element.part1_cysj = dateModify(element.part1_cysj);
-                //console.log(element.part1_rysj);
-            }
-        });
         ctx.body = {...Tips[0],count_num:num,data:data};
+        // ctx.body = {...Tips[0],data:data};
 
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e}
@@ -227,7 +256,23 @@ router.post('/oa/patients2/lis',async(ctx,next) => {
     })
 });
 
-
+// 给郑莹倩师姐：获取单个维度所有不重复的值
+router.post('/oa/patients2/dim',async(ctx,next) => {
+    let dim = ctx.request.body.dim;
+    //let {dim} = params;
+    //console.log(dim);
+    let result = [];
+    let sql = `SELECT DISTINCT ${dim} FROM SECOND_HOME;`;
+    await db.query(sql).then(async(res) => {
+        res.forEach(function(element){
+            //console.log(element[`${dim}`]);
+            result.push(element[`${dim}`]);
+        })
+        ctx.body = {...Tips[0],dim:result};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
 
 // 给许靖琴：二附院根据pid获取主页、费用和Lis信息
 router.get('/oa/patient2/:pid',async(ctx,next) => {

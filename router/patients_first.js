@@ -102,12 +102,22 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 
     let {pid, zyh} = ctx.params;
     await queryPatient(pid, zyh).then((res) => {
+
+        const operation_time = res[0][0]['part1_ssrq'];
+        const type_lis = Utils.generateCategory(res[2], 'part3_xmmc');
+        type_lis.forEach(type => {
+            type.data = Utils.generateCategory(type.data, 'part3_sj');
+            type.data.map(item => {
+                item['reference'] = item.type < operation_time ? 'before' : 'after';
+                return item;
+            });
+        });
         ctx.body = {
             ...Tips[0],
             data: {
                 home: res[0],
                 advice: Utils.generateCategory(res[1], 'part2_yzlb'),
-                lis: Utils.generateCategory(res[2], 'part3_xmmc'),
+                lis: type_lis,
                 mazui: res[3],
                 results: Utils.generateCategory(res[4], 'part5_jclb')
             }

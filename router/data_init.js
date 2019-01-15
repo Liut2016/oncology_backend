@@ -229,7 +229,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
          return `${key.split(',').join('')}`;
      });
 
-     for (let i = 1; i<6; i++) {
+     for (let i = 1; i<11; i++) {
          const old_lis = fs.readFileSync(path.join(__dirname, `../data/first_data/first_lis/${i}.xlsx`));
          const old_lis_example = xlsx.parse(old_lis, {cellDates: true})[0].data.slice(1);
          const completed_data = Utils.completeRow(old_lis_example, 10, null);

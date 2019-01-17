@@ -88,6 +88,8 @@ function unique (arr) {
     return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
 }
 
+
+
 //post方法实现二附院所有病人病案首页信息分页
 router.post('/oa/patients2/filter',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
@@ -139,8 +141,8 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
               where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
           }
     });
-
- 
+    
+  
     console.log(searchField);
     where_array.forEach((item, index) => {
           if ( index === where_array.length - 1) {
@@ -150,9 +152,13 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
           }
     });
 
+    formType.push('SECOND_HOME');
+
     if(formType.indexOf('SECOND_FEE')!=-1){
-        where_array.unshift(`(part1_bah=part2_bah) and `);
+        where = `(part1_bah=part2_bah) and ${where}`;
     }
+
+    
     let sql1;
     let sql2;
     if((conditions.length!=0)&&(isAll===false)){
@@ -203,7 +209,6 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
         ctx.body = {...Tips[1002],reason:e}
     })
 });
-
 
 // 给郑莹倩师姐：二附院根据表名和字段名提取该字段的所有数据
 router.get('/oa/patients2/:table/:key',async(ctx,next) => {

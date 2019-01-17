@@ -88,10 +88,11 @@ function unique (arr) {
     return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
 }
 
-// post方法实现二附院所有病人病案首页信息过滤分页
+//post方法实现二附院所有病人病案首页信息分页
 router.post('/oa/patients2/filter',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
+    var isAll = ctx.request.body.isAll;
     var start = pageindex -1;
     var conditions = ctx.request.body.conditions;
     var searchField = [];
@@ -100,17 +101,17 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
     var where_array = [];
     var where = ''  ;
     var set = '';
-    
+    console.log(conditions);
     conditions.forEach(item => {
-          searchField.push(item.databaseField);
-          logicValue.push(item.logicValue);
+        searchField.push(item.databaseField);
+        logicValue.push(item.logicValue);
         Object.keys(form).forEach( i => {
             if(i === item.form_type){
                 formType.push(form[i]);
             }
         })
-        //console.log(formType);
-          
+        console.log(formType);
+
           //字符型查找
           if ((item.isNotNumber === true) && (item.isSelect === false)) {
               if (item.selectedValue === '包含') {
@@ -139,6 +140,8 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
           }
     });
 
+ 
+    console.log(searchField);
     where_array.forEach((item, index) => {
           if ( index === where_array.length - 1) {
               where = ` ${where}${item} `;
@@ -146,48 +149,51 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
               where = ` ${where}${item}  ${logicValue[index + 1]} `;
           }
     });
+
+    if(formType.indexOf('SECOND_FEE')!=-1){
+        where_array.unshift(`(part1_bah=part2_bah) and `);
+    }
     let sql1;
     let sql2;
-    if(conditions.length!=0){
-        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd');
-        sql1 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)} limit ${start},${pagesize};`;
-        sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)}`;
+    if((conditions.length!=0)&&(isAll===false)){
+        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd' , 'part1_pid');
+        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
+        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
+        // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
+    }else if((conditions.length!=0)&&(isAll===true)){
+        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
+        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
     }else{
-        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd FROM SECOND_HOME limit ${start},${pagesize};`
+        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
         sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
     }
 
-   //console.log(sql1);
+   console.log(sql1);
+   console.log(sql2);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
-        //console.log(res);
+        console.log(res);
         data = res[0];
         data.forEach(element => {
                 Object.keys(element).forEach( item=>{
                     if (item === 'part1_xb') {
-                        if(element[item]=1){
+                        key = element[item];
+                        if(element[item]===1){
                             element[item]='男';
                         } 
-                        if(element[item]=2){
+                        if(element[item]===2){
                             element[item]='女';
                         };
                     }
                 })
              })
         if(conditions.length!=0){
-            num = res[1].length;
-            // data.forEach(element => {
-            //     Object.keys(element).forEach( item=>{
-            //         if ((item !== 'part1_xm') && (item !== 'part1_bah') && (item !== 'part1_rysj') && (item !== 'part1_ryzd')) {
-            //             delete element.item;
-            //         }
-            //     })
-            // })
+            num = res[1][0]['num'];
         }else{
             num = res[1][0]['COUNT(*)'];
         }
-        //console.log(num);
+        console.log(num);
         
         //Utils.cleanData(res);
         ctx.body = {...Tips[0],count_num:num,data:data};
@@ -197,6 +203,7 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
         ctx.body = {...Tips[1002],reason:e}
     })
 });
+
 
 // 给郑莹倩师姐：二附院根据表名和字段名提取该字段的所有数据
 router.get('/oa/patients2/:table/:key',async(ctx,next) => {
@@ -411,4 +418,35 @@ router.get('/oa/patients2/dashboard',async(ctx,next) => {
     })
 });
 
+
+// 给李安：获取民族、住院天数、住院次数
+router.get('/oa/patients2/dashboard2',async(ctx,next) => {
+    let sql = 'SELECT part1_mz,part1_zycs,part1_sjzyts FROM SECOND_HOME;';
+    let nationality = []
+    let times = [];
+    let days = [];
+    let aveTimes = 0;
+    let aveDays = 0;
+    let nationalityPercentage = 0;
+    
+
+    await db.query(sql).then(res => {
+        res.forEach(function(element){
+            nationality.push(element.part1_mz);
+            times.push(element.part1_zycs);
+            days.push(element.part1_sjzyts);
+            aveTimes += element.part1_zycs;
+            aveDays += element.part1_sjzyts;
+            if(element.part1_mz === '汉族') nationalityPercentage++;
+        });
+        let num = res.length;
+        //console.log(num);
+        aveTimes /= num;
+        aveDays /= num;
+        nationalityPercentage /= num;
+        ctx.body = {...Tips[0],nationality:nationality,times:times,days:days,patientsNum:num,nationalityPercentage:nationalityPercentage,aveTimes:aveTimes,aveDays:aveDays};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
 module.exports = router;

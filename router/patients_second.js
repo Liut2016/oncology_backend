@@ -101,7 +101,6 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
     var where_array = [];
     var where = ''  ;
     var set = '';
-    console.log(conditions);
     conditions.forEach(item => {
         searchField.push(item.databaseField);
         logicValue.push(item.logicValue);
@@ -109,9 +108,7 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
             if(i === item.form_type){
                 formType.push(form[i]);
             }
-        })
-        console.log(formType);
-
+        });
           //字符型查找
           if ((item.isNotNumber === true) && (item.isSelect === false)) {
               if (item.selectedValue === '包含') {
@@ -139,9 +136,6 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
               where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
           }
     });
-
- 
-    console.log(searchField);
     where_array.forEach((item, index) => {
           if ( index === where_array.length - 1) {
               where = ` ${where}${item} `;
@@ -150,30 +144,28 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
           }
     });
 
-    if(formType.indexOf('SECOND_FEE')!=-1){
+    if(formType.indexOf('SECOND_FEE') !== -1){
         where_array.unshift(`(part1_bah=part2_bah) and `);
     }
     let sql1;
     let sql2;
-    if((conditions.length!=0)&&(isAll===false)){
-        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd' , 'part1_pid');
+    if((conditions.length !== 0)&&(isAll===false)) {
+        searchField.push('part1_pid', 'part1_bah', 'part1_xm', 'part1_ryzd', 'part1_rysj', 'part1_sjzyts');
         sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
         sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
         // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
-    }else if((conditions.length!=0)&&(isAll===true)){
+    }else if((conditions.length !== 0)&&(isAll===true)){
         sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
         sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
     }else{
-        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
+        console.log('nothing');
+        sql1 = `SELECT part1_pid,part1_bah, part1_xm,part1_ryzd,part1_rysj,part1_sjzyts FROM SECOND_HOME limit ${start},${pagesize};`;
         sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
     }
 
-   console.log(sql1);
-   console.log(sql2);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
-        console.log(res);
         data = res[0];
         data.forEach(element => {
                 Object.keys(element).forEach( item=>{
@@ -184,18 +176,15 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
                         } 
                         if(element[item]===2){
                             element[item]='女';
-                        };
+                        }
                     }
                 })
-             })
-        if(conditions.length!=0){
+             });
+        if(conditions.length !== 0){
             num = res[1][0]['num'];
         }else{
             num = res[1][0]['COUNT(*)'];
         }
-        console.log(num);
-        
-        //Utils.cleanData(res);
         ctx.body = {...Tips[0],count_num:num,data:data};
         // ctx.body = {...Tips[0],data:data};
 
@@ -274,7 +263,7 @@ router.post('/oa/patients2/dim',async(ctx,next) => {
         res.forEach(function(element){
             //console.log(element[`${dim}`]);
             result.push(element[`${dim}`]);
-        })
+        });
         ctx.body = {...Tips[0],dim:result};
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e};

@@ -58,11 +58,11 @@ router.post('/oa/patients1/',async (ctx, next) =>{
 
     var conditions = ctx.request.body.condition;
     const condition_array = [];
-    /*Object.keys(conditions).forEach(key => {
+    Object.keys(conditions).forEach(key => {
         if (conditions[key] !== '') {
             condition_array.push(`${basic_conditions[key]} = '${conditions[key]}'`);
         }
-    });*/
+    });
     const condition_sql = 'WHERE ' + condition_array.join(' AND ');
     const start = (pageindex-1) * pagesize;
     let sql1 = `SELECT * FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
@@ -91,7 +91,7 @@ async function queryPatient(id, lsh) {
     const zyh = lsh.substr(7, 7);
     const home_data = db.query(`SELECT * FROM FIRST_HOME WHERE part1_pid = ${id}`);
     const advice_data = db.query(`SELECT * FROM FIRST_ADVICE WHERE part2_zyh = '${lsh}'`);
-    const lis_data = db.query(`SELECT * FROM FIRST_LIS WHERE part3_zylsh = '${lsh}'`);
+    const lis_data = db.query(`SELECT part3_zylsh, part3_xmmc, part3_xxmmc, part3_sj, part3_jg, part3_ckfw, part3_dw FROM FIRST_LIS WHERE part3_zylsh = '${lsh}'`);
     const mazui_data = db.query(`SELECT * FROM FIRST_MAZUI WHERE part4_zylsh = '${lsh}'`);
     const results_data = db.query(`SELECT * FROM FIRST_RESULTS WHERE part5_zyh = ${zyh}`);
     return await Promise.all([home_data, advice_data, lis_data, mazui_data, results_data]);
@@ -119,7 +119,7 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
                 advice: Utils.generateCategory(res[1], 'part2_yzlb'),
                 lis: type_lis,
                 mazui: res[3],
-                results: Utils.generateCategory(res[4], 'part5_jclb')
+                results: res[4]
             }
         }
     }).catch(e => {
@@ -148,7 +148,7 @@ router.get('/oa/es_list/', async (ctx, next) => {
                 }
             }
         },
-        _source: [
+        '_source':[
             'part5_zyh'
         ]
     }).then(async (res)=> {

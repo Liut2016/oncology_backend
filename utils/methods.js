@@ -139,7 +139,6 @@ let util = {
         });
         return data;
     },
-
     uniqArray(array, key) {
         const element_map = {};
         const new_arr = [];
@@ -148,6 +147,7 @@ let util = {
         });
         Object.keys(element_map).forEach(key => {
             new_arr.push(element_map[key]);
+
         });
         return new_arr;
     }

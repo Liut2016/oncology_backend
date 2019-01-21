@@ -10,6 +10,17 @@ const basic_conditions = {
     Disease: 'part1_zzd'
 };
 
+const part_map = {
+    'part1': 'FIRST_HOME',
+    'part2': 'FIRST_ADVICE',
+    'part3': 'FIRST_LIS',
+    'part4': 'FIRST_MAZUI',
+    'part5': 'FIRST_RESULTS'
+};
+
+
+const home_keys = 'part1_pid,part1_zylsh,part1_xm,part1_xb,part1_nl,part1_zzd,part1_rysj,part1_cysj';
+
 // 查询所有病人记录（已过期）
 router.get('/oa/patients' ,async (ctx, next) => {
     let sql = 'SELECT * FROM PART1;';
@@ -80,6 +91,56 @@ router.post('/oa/patients1/',async (ctx, next) =>{
         ctx.body = {...Tips[1002],reason:e}
     })
 });
+
+router.post('/oa/filter1', async (ctx, next) => {
+   const params = ctx.request.body;
+   const start = params['pageindex'] - 1;
+   if (params.conditions.length === 0) {
+       let sql1 = `SELECT ${home_keys} FROM FIRST_HOME LIMIT ${start}, ${params['pagesize']}`;
+       let sql2 = `SELECT COUNT(*) FROM FIRST_HOME`;
+       const get_patient = db.query(sql1);
+       const get_count = db.query(sql2);
+       await Promise.all([get_patient, get_count]).then(res => {
+           ctx.body = {...Tips[0],count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
+       }).catch(e => {
+           ctx.body = {...Tips[1002], reason:e}
+       })
+   } else {
+       const condition_array = [];
+       const condition_part = {
+           'FIRST_HOME': [],
+           'FIRST_ADVICE': [],
+           'FIRST_LIS': [],
+           'FIRST_RESULTS': [],
+           'FIRST_MAZUI': []
+       };
+       params.conditions.forEach(item => {
+           condition_array.push(generateCondition(item));
+       });
+
+       condition_array.forEach(item => {
+           condition_part[item.part].push(item.sql);
+       });
+       console.log(condition_part);
+   }
+});
+
+function generateCondition(condition) {
+    if (condition['isNumber'] || condition['isTime']) {
+        const result = {
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']}`
+        };
+        return result;
+    }
+    if (condition['isNotNumber']) {
+        const result = {
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['databaseField']} like '%${condition['inputValue']}%'`
+        };
+        return result;
+    }
+}
 
 async function queryHome(zyh_array) {
     const zyh = zyh_array.join(',');

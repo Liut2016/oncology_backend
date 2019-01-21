@@ -175,7 +175,6 @@ router.post('/oa/filter1', async (ctx, next) => {
         const column_map = `${home_fields.join(',')}`;
         const condition_map = `${join_array.concat(all_condition).join(' and ')}`;
         const sql = `select ${column_map} from ${table_map} where ${condition_map}`;
-        console.log(sql);
         await db.query(sql).then(res => {
             const uniq_data = Utils.uniqArray(res, 'part1_pid');
             uniq_data.forEach(item => {

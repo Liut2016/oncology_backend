@@ -13,6 +13,7 @@ const _ = require('lodash');
 
 const type = Type.type;
 const sec_type = second_Type.type;
+const sec_key = second_Type.key;
 
 router.get('/oa/init_weight' ,async (ctx, next) => {
        await init_weight().then(async (res) => {
@@ -558,6 +559,123 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
             status: '二附院新LIS数据导入失败'
         }
     })
+});
+
+// 建表：二附院病理表
+router.get('/oa/init_pathology_2', async(ctx,next) => {
+    //console.log(sec_key);
+    const keys = sec_key.pathology_key;
+    const types = sec_type.pathology_type;
+    const sql_array = [];
+    keys.forEach((item,index) => {
+        sql_array.push(`part4_${item} ${types[index]}`);
+    });
+    
+    sql_array.unshift('part4_pid INT unsigned not null auto_increment');
+    sql_array.push('PRIMARY KEY (part4_pid)');
+    sql_array.push('INDEX BAH (part4_bah)');
+
+    const sql_string = `CREATE TABLE IF NOT EXISTS SECOND_PATHOLOGY (${sql_array.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    await db.query(sql_string).then(res => {
+        ctx.body = {
+            status:'二附院病理表SECOND_PATHOLOGY建表成功'
+        }
+    }).catch(e => {
+        ctx.body = {
+            status:'二附院病理表SECOND_PATHOLOGY建表失败'
+        }
+    });
+});
+
+// 对二附院病理表中每一条记录进行修改
+function dataSolve(data)
+{
+    // 去掉序号
+    data.shift();
+
+    // 把空白处填成‘null’
+    for(let i=0;i<data.length;i++)
+    {
+        if(typeof(data[i]) ===  'undefined') data[i] = null;
+    }
+
+    // xlsx插件把最后一个非空值作为最后一项，因此需要把每一条记录补全
+    while(data.length < 26) data.push(null);
+
+    // 将病案号处理为数值型
+    //if(data[1] != 'null') data[1] = parseInt(data[1]);
+    if(data[1]) data[1] = parseInt(data[1]);
+
+
+    // 将‘远处转移有无’字段映射为数值：空缺 -> -1，无 -> 0，有/是 -> 1
+    if(data[9] === '无') data[9] = 0;
+    else if(data[9] === '是' || data[9] === '有') data[9] = 1;
+    else data[9] = -1;
+
+    // 将‘新辅助治疗’字段映射为数值：空缺 -> -1，是 -> 1，否 -> 0
+    if(data[20] === '是') data[20] = 1;
+    else if(data[20] === '否') data[20] = 0;
+    else data[20] = -1;
+}
+
+function dataMerge(data)
+{
+    let sqlData = [];
+    for(let i=0;i<data.length;i++)
+    {
+        dataSolve(data[i]);
+        if(data[i][0] != 'null') sqlData.push(data[i]);
+        else{
+            data[i].forEach((item,index) => {
+                if(item != 'null') sqlData[sqlData.length-1][index] = item;
+            });
+        }
+    }
+    //console.log(data);
+    return sqlData;
+}
+
+// 插入数据：二附院病理表
+router.get('/oa/load_pathology_2',async(ctx,next) => {
+    const keys = sec_key.pathology_key;
+    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/病理v1.xlsx'));
+    const data = xlsx.parse(file)[0].data.slice(1);
+    const sqlKey = [];
+    let sqlData = [];
+    keys.forEach((item) => {
+        sqlKey.push(`part4_${item}`);
+    });
+    data.forEach((item) => {
+        dataSolve(item);
+        //if(item[0] != 'null') sqlData.push(item);
+        //console.log(item[0]);
+        if(item[0]) sqlData.push(item);
+        else{
+            //console.log(sqlData);
+            item.forEach((item2,index) => {
+                //if(item2 != 'null') sqlData[sqlData.length-1][index] = item2;
+                if(!(!item2 && typeof(item2) === 'object')) sqlData[sqlData.length-1][index] = item2;
+            });
+        }
+    });
+
+    //console.log(sqlKey);
+    
+    //console.log(sqlData);
+    const sql_string = `INSERT INTO SECOND_PATHOLOGY (${sqlKey.join(',')}) VALUES ?;`;
+    //console.log(sql_string);
+    await db.query(sql_string,[sqlData]).then(res => {
+        ctx.body = {
+            status:'二附院病理表 SECOND_PATHOLOGY 数据导入成功',
+            data:sqlData
+        }
+    }).catch(e => {
+        ctx.body = {
+            status:'二附院病理表 SECOND_PATHOLOGY 数据导入失败',
+            error:e,
+            data:sqlData
+        }
+    });
 });
 
 router.get('/oa/generate_json_2', async(ctx, next) => {

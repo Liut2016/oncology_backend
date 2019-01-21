@@ -167,7 +167,7 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
         sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
         // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
     }else if((conditions.length!=0)&&(isAll===true)){
-        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
+        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
         sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
     }else{
         sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
@@ -209,6 +209,128 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
         ctx.body = {...Tips[1002],reason:e}
     })
 });
+
+
+//给郑莹倩师姐：二附院筛选基础上返回特定字段
+router.post('/oa/patients2/filter2',async (ctx, next) =>{
+    var pagesize = parseInt(ctx.request.body.pagesize);
+    var pageindex = parseInt(ctx.request.body.pageindex);
+    var isAll = ctx.request.body.isAll;
+    var start = pageindex -1;
+    var conditions = ctx.request.body.conditions;
+    var searchField = ctx.request.body.keys;
+    var formType = [];
+    var logicValue = [];
+    var where_array = [];
+    var where = ''  ;
+    var set = '';
+    //console.log(conditions);
+    conditions.forEach(item => {
+        searchField.push(item.databaseField);
+        logicValue.push(item.logicValue);
+        Object.keys(form).forEach( i => {
+            if(i === item.form_type){
+                formType.push(form[i]);
+            }
+        })
+        //console.log(formType);
+
+          //字符型查找
+          if ((item.isNotNumber === true) && (item.isSelect === false)) {
+              if (item.selectedValue === '包含') {
+                  where_array.push(`(${item.databaseField} like '%${item.inputValue}%')`);
+              }
+              if (item.selectedValue === '等于') {
+                  where_array.push(`(${item.databaseField} = '${item.inputValue}')`);
+              }
+          }
+          //选择框查找
+          if ((item.isNotNumber === true) && (item.isSelect === true)) {
+  
+              if (item.selectedInt != null) {
+                  where_array.push(`(${item.databaseField} = ${item.selectedInt})`);
+              }else {
+                  where_array.push(`(${item.databaseField} = '${item.selectedValue}')`);
+              }
+          }
+          //次数查找
+          if (item.isNumber === true) {
+              where_array.push(`(${item.databaseField} between ${item.inputValue1} and ${item.inputValue2})`);
+          }
+          //时间查找
+          if (item.isTime === true) {
+              where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
+          }
+    });
+    
+    //console.log(searchField);
+    where_array.forEach((item, index) => {
+          if ( index === where_array.length - 1) {
+              where = ` ${where}${item} `;
+          }else {
+              where = ` ${where}${item}  ${logicValue[index + 1]} `;
+          }
+    });
+
+    formType.push('SECOND_HOME');
+
+    if(formType.indexOf('SECOND_FEE')!=-1){
+        where = `(part1_bah=part2_bah) and ${where}`;
+    }
+
+    
+    let sql1;
+    let sql2;
+    if((conditions.length!=0)&&(isAll===false)){
+        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd' , 'part1_pid');
+        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
+        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
+        // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
+    }else if((conditions.length!=0)&&(isAll===true)){
+        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
+        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
+    }else{
+        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
+        sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
+    }
+
+   //console.log(sql1);
+   //console.log(sql2);
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    Promise.all([part1, part2]).then((res) => {
+        //console.log(res);
+        data = res[0];
+        data.forEach(element => {
+                Object.keys(element).forEach( item=>{
+                    if (item === 'part1_xb') {
+                        key = element[item];
+                        if(element[item]===1){
+                            element[item]='男';
+                        } 
+                        if(element[item]===2){
+                            element[item]='女';
+                        };
+                    }
+                })
+             })
+        if(conditions.length!=0){
+            num = res[1][0]['num'];
+        }else{
+            num = res[1][0]['COUNT(*)'];
+        }
+        //console.log(num);
+        
+        //Utils.cleanData(res);
+        ctx.body = {...Tips[0],count_num:num,data:data};
+        // ctx.body = {...Tips[0],data:data};
+
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e}
+    })
+});
+
+
 
 // 给郑莹倩师姐：二附院根据表名和字段名提取该字段的所有数据
 router.get('/oa/patients2/:table/:key',async(ctx,next) => {
@@ -450,6 +572,32 @@ router.get('/oa/patients2/dashboard2',async(ctx,next) => {
         aveDays /= num;
         nationalityPercentage /= num;
         ctx.body = {...Tips[0],nationality:nationality,times:times,days:days,patientsNum:num,nationalityPercentage:nationalityPercentage,aveTimes:aveTimes,aveDays:aveDays};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
+// 给李安：查询二附院病理数据表中tnm分期字段的所有数据
+router.get('/oa/patients2/pathology_tnm',async(ctx,next) => {
+    let sql = 'SELECT part4_tnmfq FROM SECOND_PATHOLOGY;'
+    let tnm = [];
+    await db.query(sql).then(res => {
+        res.forEach((item) => {
+            //console.log(item['part4_tnmfq']);
+            tnm.push(item['part4_tnmfq']);
+        })
+        
+        ctx.body = {...Tips[0],tnm:tnm};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
+// 给李安：查询二附院病理数据表中tnm分期字段的所有数据
+router.get('/oa/patients2/pathology_all',async(ctx,next) => {
+    let sql = 'SELECT * FROM SECOND_PATHOLOGY;'
+    await db.query(sql).then(res => {
+        ctx.body = {...Tips[0],tnm:res};
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e};
     });

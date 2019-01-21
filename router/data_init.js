@@ -9,7 +9,6 @@ const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
 const second_Type = require('../db/second_affiliated');
 const Utils = require('../utils/methods');
-const _ = require('lodash');
 
 const type = Type.type;
 const sec_type = second_Type.type;
@@ -231,7 +230,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
          return `${key.split(',').join('')}`;
      });
 
-     for (let i = 1; i<11; i++) {
+     for (let i = 1; i<6; i++) {
          const old_lis = fs.readFileSync(path.join(__dirname, `../data/first_data/first_lis/${i}.xlsx`));
          const old_lis_example = xlsx.parse(old_lis, {cellDates: true})[0].data.slice(1);
          const completed_data = Utils.completeRow(old_lis_example, 10, null);
@@ -716,45 +715,6 @@ router.get('/oa/generate_json_2', async(ctx, next) => {
     fs.writeFileSync(path.join(__dirname, '../generate/hos_2.json'), JSON.stringify(data));
     // 将此数组转换为键值-类型
 
-});
-
-router.get('/oa/generate_json_1', async (ctx, next) => {
-    const home_data = fs.readFileSync(path.join(__dirname, '../data/first_data/first_home_page.xls'));
-    const results_data = fs.readFileSync(path.join(__dirname, '../data/first_data/first_results/results.xlsx'));
-    const home_key = xlsx.parse(home_data)[0].data[0].slice(1);
-    const results_key = xlsx.parse(results_data)[0].data[0].slice(2);
-    const advice_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/first_data/first_advice/advice1.csv') , {encoding: 'binary'}), 'binary');
-    let csv_file = iconv.decode(advice_buffer, 'GBK');
-    const options = {
-        delimiter: ',',
-        quote: '"'
-    };
-    const advice_key = Object.keys(csv.toObject(csv_file, options)[0]).slice(1);
-    const key_json = {};
-    const key_array = [home_key, advice_key, results_key];
-    const part_map = {
-        1: '病案首页',
-        2: '医嘱',
-        3: '影像报告'
-    };
-    key_array.forEach((item, index) => {
-        key_json[`part${index + 1}`] = {
-            'name': part_map[index + 1],
-            'items': key_array[index].map(key => {
-                const p_key = `part${index + 1}_${PY_translator(key, {style: PY_translator.STYLE_FIRST_LETTER})}`;
-                return {
-                    name: key,
-                    key: p_key.split(',').join(''),
-                    belong: part_map[index + 1],
-                    type: _.endsWith(key, '时间') ? 'date' : ''
-                }
-            })
-        };
-    });
-
-    ctx.body = {
-        key: key_json
-    }
 });
 
 generateType = (type) => {

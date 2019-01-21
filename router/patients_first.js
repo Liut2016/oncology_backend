@@ -84,7 +84,6 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
         num = res[1][0]['COUNT(*)'];
-        console.log(res[0]);
         res[0].map(item => {
             item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
             item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
@@ -100,6 +99,7 @@ router.post('/oa/patients1/',async (ctx, next) =>{
 });
 
 router.post('/oa/filter1', async (ctx, next) => {
+   let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
    const params = ctx.request.body;
    const start = params['pageindex'] - 1;
    if (params.conditions.length === 0) {
@@ -119,36 +119,100 @@ router.post('/oa/filter1', async (ctx, next) => {
        })
    } else {
        const condition_array = [];
+       const part_has_condition = ['FIRST_HOME a'];
+       const all_condition = [];
+       const join_array = [];
        const condition_part = {
-           'FIRST_HOME': [],
-           'FIRST_ADVICE': [],
-           'FIRST_LIS': [],
-           'FIRST_RESULTS': [],
-           'FIRST_MAZUI': []
+           'FIRST_HOME': {
+               items: [],
+               table: 'a',
+               main: 'part1_zyh'
+           },
+           'FIRST_ADVICE': {
+               items: [],
+               table: 'b',
+               main: 'part2_zylsh'
+           },
+           'FIRST_LIS': {
+               items: [],
+               table: 'c',
+               main: 'part3_zyh'
+           },
+           'FIRST_MAZUI': {
+               items: [],
+               table: 'd',
+               main: 'part4_zylsh'
+           },
+           'FIRST_RESULTS': {
+               items: [],
+               table: 'e',
+               main: 'part5_zyh'
+           },
        };
        params.conditions.forEach(item => {
            condition_array.push(generateCondition(item));
        });
 
        condition_array.forEach(item => {
-           condition_part[item.part].push(item.sql);
+           condition_part[item.part].items.push(item.sql);
        });
-       console.log(condition_part);
+
+       Object.keys(condition_part).forEach((key, index) => {
+           if (condition_part[key].items.length > 0 && index > 0) {
+               part_has_condition.push(`${key} ${condition_part[key].table}`);
+           }
+           all_condition.push(...condition_part[key].items);
+       });
+
+       if (part_has_condition.length === 2) {
+           join_array.push('part1_zyh = part5_zyh');
+       }
+       home_fields = home_fields.map(item => {
+           return `a.${item}`;
+       });
+
+       const table_map = part_has_condition.join(',');
+       const column_map = `${home_fields.join(',')}`;
+       const condition_map = `${join_array.concat(all_condition).join(' and ')}`;
+       const sql = `select ${column_map} from ${table_map} where ${condition_map}`;
+       await db.query(sql).then(res => {
+           const uniq_data = Utils.uniqArray(res, 'part1_pid');
+           uniq_data.forEach(item => {
+               item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+               item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+           });
+           ctx.body = {...Tips[0], count_num: uniq_data.length, data: uniq_data.slice(start, start + params['pagesize'])};
+       }).catch(e => {
+       });
    }
 });
 
 function generateCondition(condition) {
-    if (condition['isNumber'] || condition['isTime']) {
+    const table_map = {
+        'part1': 'a',
+        'part2': 'b',
+        'part3': 'c',
+        'part4': 'd',
+        'part5': 'e'
+    };
+    if (condition['isNumber'] ) {
         const result = {
             part: part_map[condition['databaseField'].split('_')[0]],
-            sql: `${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']}`
+            sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']}`
         };
         return result;
     }
     if (condition['isNotNumber']) {
         const result = {
             part: part_map[condition['databaseField'].split('_')[0]],
-            sql: `${condition['databaseField']} like '%${condition['inputValue']}%'`
+            sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} like '%${condition['inputValue']}%'`
+        };
+        return result;
+    }
+    if (condition['isTime']) {
+        const result = {
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} between '${condition['startTime']}' and '${condition['endTime']}'`
         };
         return result;
     }
@@ -208,6 +272,12 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 
 router.get('/oa/es_list/', async (ctx, next) => {
     let {query} = ctx.query;
+    let words= query.split('');
+    words = words.map((word) => {
+        return {
+            term: {'part5_jcjgms': word}
+        }
+    });
     const related_zyh = [];
     const zyh_highlight = {};
     await db.es().search({
@@ -219,9 +289,9 @@ router.get('/oa/es_list/', async (ctx, next) => {
                 }
             },
             query: {
-                query_string: {
-                    query: query
-                }
+                    bool: {
+                        must: words
+                    }
             }
         },
         '_source':[

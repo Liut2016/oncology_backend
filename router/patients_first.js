@@ -76,13 +76,20 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     });
     const condition_sql = 'WHERE ' + condition_array.join(' AND ');
     const start = (pageindex-1) * pagesize;
-    let sql1 = `SELECT * FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
+    const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
+    let sql1 = `SELECT ${home_fields.join(',')} FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
     let sql2 = `SELECT COUNT(*) FROM FIRST_HOME ${condition_array.length === 0 ? '' :condition_sql};`;
     //console.log(sql1);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
         num = res[1][0]['COUNT(*)'];
+        console.log(res[0]);
+        res[0].map(item => {
+            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            return item;
+        });
         data = res[0];
         //Utils.cleanData(res);
         ctx.body = {...Tips[0],count_num:num,data:data};
@@ -101,6 +108,11 @@ router.post('/oa/filter1', async (ctx, next) => {
        const get_patient = db.query(sql1);
        const get_count = db.query(sql2);
        await Promise.all([get_patient, get_count]).then(res => {
+           res[0].map(item => {
+               item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+               item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+               return item;
+           });
            ctx.body = {...Tips[0],count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
        }).catch(e => {
            ctx.body = {...Tips[1002], reason:e}
@@ -144,7 +156,7 @@ function generateCondition(condition) {
 
 async function queryHome(zyh_array) {
     const zyh = zyh_array.join(',');
-    const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
+    const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_zzd'];
     return db.query(`SELECT ${home_fields.join(',')} FROM FIRST_HOME WHERE part1_zyh IN (${zyh})`);
 }
 
@@ -160,10 +172,8 @@ async function queryPatient(id, lsh) {
 
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-
     let {pid, zyh} = ctx.params;
     await queryPatient(pid, zyh).then((res) => {
-
         const operation_time = res[0][0]['part1_ssrq'];
         const type_lis = Utils.generateCategory(res[2], 'part3_xmmc');
         type_lis.forEach(type => {
@@ -172,6 +182,10 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
                 item['reference'] = item.type < operation_time ? 'before' : 'after';
                 return item;
             });
+        });
+        res[4].map(item => {
+            item['part5_jcsj'] = item['part5_jcsj'].substr(0, 16);
+            return item;
         });
         ctx.body = {
             ...Tips[0],
@@ -195,6 +209,7 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 router.get('/oa/es_list/', async (ctx, next) => {
     let {query} = ctx.query;
     const related_zyh = [];
+    const zyh_highlight = {};
     await db.es().search({
         body: {
             highlight: {
@@ -213,14 +228,23 @@ router.get('/oa/es_list/', async (ctx, next) => {
             'part5_zyh'
         ]
     }).then(async (res)=> {
-
         res['hits']['hits'].forEach(item => {
+            let high_light;
             related_zyh.push(item._source['part5_zyh']);
+            Object.keys(item.highlight).forEach((part, index) => {
+                if (index === 0) {
+                   high_light = item.highlight[part];
+                }
+            });
+            zyh_highlight[item._source['part5_zyh']] = high_light;
         });
-
         const uniq_zyh = _.uniq(related_zyh);
         await queryHome(uniq_zyh).then(res => {
-            ctx.body = {status: res};
+            res.map(patient => {
+               patient.highlight = zyh_highlight[patient['part1_zyh']];
+               return patient;
+            });
+            ctx.body = {...Tips[0], count_num:res.length, data: res};
         }).catch(e => {
             ctx.body = {status: e}
         })

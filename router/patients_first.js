@@ -260,7 +260,8 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
         sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
         sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
     }else{
-        sql1 = `SELECT part1_xm,part1_zyh,part1_rysj,part1_nl,part1_pid FROM FIRST_HOME limit ${start},${pagesize};`
+        //sql1 = `SELECT part1_xm,part1_zyh,part1_rysj,part1_nl,part1_pid FROM FIRST_HOME limit ${start},${pagesize};`
+        sql1 = `SELECT ${unique(searchField)} FROM FIRST_HOME limit ${start},${pagesize};`
         sql2 = 'SELECT COUNT(*) FROM FIRST_HOME;'
     }
 

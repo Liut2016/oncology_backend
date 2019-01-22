@@ -461,6 +461,85 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
     })
 });
 
+// 给李安：获取年龄、性别、手术名称、主诊断、民族百分比
+router.get('/oa/patients1/dashboard',async(ctx,next) => {
+    let sql = 'SELECT part1_nl,part1_xb,part1_ssmc,part1_zzd,part1_mz,part1_sjzyts,part1_xzz FROM FIRST_HOME;';
+    let age = [];
+    let gender = [];
+    let surgery = [];
+    let diagnosis = [];
+    let treatDays = [];
+    let provinces = [];
+    let city = [];
+    let shannxi = 0;
+    let num1 = 0;
+    let nationalityPercentage = 0;
+
+    await db.query(sql).then(res => {
+        console.log(res);
+        res.forEach( element => {
+            age.push(element.part1_nl);
+            gender.push(element.part1_xb);
+            surgery.push(element.part1_ssmc);
+            diagnosis.push(element.part1_zzd);
+            treatDays.push(element.part1_sjzyts);
+            if(element.part1_mz === '汉族') nationalityPercentage++;
+            // var reg = /.+?(省|市|自治区|自治州)/g;
+            // let s = element.part1_xzz.match(reg);
+            // if(s != null)
+            // {
+            //     let a = s[0];
+            //     let b = s[1];
+            //     if(a.charAt(a.length-1) === '省' || a.slice(a.length-3,a.length) === '自治区' || a === '北京市' || a === '上海市' || a === '天津市' || a === '重庆市')
+            //     {
+            //         provinces.push(a.replace(/\s+/g,''));
+            //     } 
+            //     if(a.charAt(a.length-1) === '市' || a.slice(a.length-3,a.length) === '自治州')
+            //     {
+            //         city.push(a.replace(/\s+/g,''));
+            //     }
+            //     if(b != null)
+            //     {
+            //         if(b.charAt(b.length-1) === '市' || b.slice(b.length-3,b.length) === '自治州')
+            //         {
+            //             city.push(b.replace(/\s+/g,''));
+            //         }
+            //     }
+               
+            // }
+
+            if(element.part1_xzz.indexOf('省')!=-1){
+                let index = element.part1_xzz.indexOf('省');
+                provinces.push(element.part1_xzz.slice(index-2,index));
+                num1++;
+            }
+            if(element.part1_xzz.indexOf('陕西')!=-1){
+                shannxi++;
+            }
+            if(element.part1_xzz.indexOf('宁夏')!=-1){
+                provinces.push('宁夏');
+            }
+            if(element.part1_xzz.indexOf('新疆')!=-1){
+                provinces.push('新疆');
+            }
+            if(element.part1_xzz.indexOf('市')!=-1){
+                let index = element.part1_xzz.indexOf('市');
+                city.push(element.part1_xzz.slice(index-2,index));
+            }
+        });
+        let num = res.length;
+        nationalityPercentage /= num;
+        shannxi /= num1;
+        ctx.body = {...Tips[0],age:age,gender:gender,surgery:surgery,diagnosis:diagnosis,treatDays:treatDays,provinces:provinces,city:city,
+            shannxi:shannxi,nationalityPercentage:nationalityPercentage};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
+
+
+
 
 
 module.exports = router;

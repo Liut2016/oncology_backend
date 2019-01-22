@@ -98,6 +98,7 @@ router.post('/oa/patients1/',async (ctx, next) =>{
         res[0].map(item => {
             item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
             item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            item['part1_xb'] = gender_map[item['part1_xb']];
             return item;
         });
         data = res[0];
@@ -122,6 +123,7 @@ router.post('/oa/filter1', async (ctx, next) => {
             res[0].map(item => {
                 item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
                 item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+                item['part1_xb'] = gender_map[item['part1_xb']];
                 return item;
             });
             ctx.body = {...Tips[0],count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
@@ -186,11 +188,13 @@ router.post('/oa/filter1', async (ctx, next) => {
         const column_map = `${home_fields.join(',')}`;
         const condition_map = `${join_array.concat(all_condition).join(' and ')}`;
         const sql = `select ${column_map} from ${table_map} where ${condition_map}`;
+        console.log(condition_map);
         await db.query(sql).then(res => {
             const uniq_data = Utils.uniqArray(res, 'part1_pid');
             uniq_data.forEach(item => {
                 item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
                 item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+                item['part1_xb'] = gender_map[item['part1_xb']];
             });
             ctx.body = {...Tips[0], count_num: uniq_data.length, data: uniq_data.slice(start, start + params['pagesize'])};
         }).catch(e => {
@@ -214,6 +218,13 @@ function generateCondition(condition) {
         return result;
     }
     if (condition['isNotNumber']) {
+        if (condition['databaseField'] === 'part1_xb') {
+            const result = {
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} = ${condition['selectedInt']}`
+            };
+            return result;
+        }
         const result = {
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} like '%${condition['inputValue']}%'`

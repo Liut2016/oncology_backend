@@ -22,6 +22,11 @@ const gender_map = {
     '2': '女'
 };
 
+const form = {
+    病案首页: 'FIRST_HOME',
+    //费用明细: 'SECOND_FEE',
+}
+
 const home_keys = 'part1_pid,part1_zylsh,part1_xm,part1_xb,part1_nl,part1_zzd,part1_rysj,part1_cysj';
 const advice_keys = ['part2_yzlb', 'part2_xmmc', 'part2_xmzl', 'part2_mcjl', 'part2_gg', 'part2_jldw', 'part2_zxdw',
     'part2_jjdw', 'part2_pcdm','part2_pcmc','part2_yfmc','part2_kssj','part2_jssj'

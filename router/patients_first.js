@@ -17,9 +17,15 @@ const part_map = {
     'part4': 'FIRST_MAZUI',
     'part5': 'FIRST_RESULTS'
 };
-
+const gender_map = {
+    '1': '男',
+    '2': '女'
+};
 
 const home_keys = 'part1_pid,part1_zylsh,part1_xm,part1_xb,part1_nl,part1_zzd,part1_rysj,part1_cysj';
+const advice_keys = ['part2_yzlb', 'part2_xmmc', 'part2_xmzl', 'part2_mcjl', 'part2_gg', 'part2_jldw', 'part2_zxdw',
+    'part2_jjdw', 'part2_pcdm','part2_pcmc','part2_yfmc','part2_kssj','part2_jssj'
+];
 
 // 查询所有病人记录（已过期）
 router.get('/oa/patients' ,async (ctx, next) => {
@@ -227,8 +233,8 @@ async function queryHome(zyh_array) {
 async function queryPatient(id, lsh) {
     const zyh = lsh.substr(7, 7);
     const home_data = db.query(`SELECT * FROM FIRST_HOME WHERE part1_pid = ${id}`);
-    const advice_data = db.query(`SELECT * FROM FIRST_ADVICE WHERE part2_zyh = '${lsh}'`);
-    const lis_data = db.query(`SELECT part3_zylsh, part3_xmmc, part3_xxmmc, part3_sj, part3_jg, part3_ckfw, part3_dw FROM FIRST_LIS WHERE part3_zylsh = '${lsh}'`);
+    const advice_data = db.query(`SELECT ${advice_keys.join(',')} FROM FIRST_ADVICE WHERE part2_zyh = '${lsh}'`);
+    const lis_data = db.query(`SELECT part3_sj, part3_xmmc, part3_xxmmc, part3_jg, part3_ckfw, part3_dw FROM FIRST_LIS WHERE part3_zylsh = '${lsh}'`);
     const mazui_data = db.query(`SELECT * FROM FIRST_MAZUI WHERE part4_zylsh = '${lsh}'`);
     const results_data = db.query(`SELECT * FROM FIRST_RESULTS WHERE part5_zyh = ${zyh}`);
     return await Promise.all([home_data, advice_data, lis_data, mazui_data, results_data]);
@@ -241,6 +247,9 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
         const operation_time = res[0][0]['part1_ssrq'];
         const type_lis = Utils.generateCategory(res[2], 'part3_xmmc');
         type_lis.forEach(type => {
+            type.data.forEach(item => {
+                delete item['part3_xmmc'];
+            });
             type.data = Utils.generateCategory(type.data, 'part3_sj');
             type.data.map(item => {
                 item['reference'] = item.type < operation_time ? 'before' : 'after';
@@ -249,13 +258,16 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
         });
         res[4].map(item => {
             item['part5_jcsj'] = item['part5_jcsj'].substr(0, 16);
+            item['part5_xb'] = gender_map[res[0][0]['part1_xb']];
+            item['part5_nl'] = res[0][0]['part1_nl'];
+            item['reference'] = item['part5_jcsj'] < operation_time ? '术前': '术后';
             return item;
         });
         ctx.body = {
             ...Tips[0],
             data: {
                 home: res[0],
-                advice: Utils.generateCategory(res[1], 'part2_yzlb'),
+                advice: Utils.generateAdvice(res[1]),
                 lis: type_lis,
                 mazui: res[3],
                 results: res[4]

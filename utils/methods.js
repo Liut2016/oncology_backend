@@ -127,6 +127,26 @@ let util = {
         });
         return type;
     },
+    generateAdvice(data) {
+        const type = [
+            {
+                type: '长期医嘱',
+                data: []
+            },
+            {
+                type: '临时医嘱',
+                data: []
+            }
+        ];
+        data.forEach(item => {
+            if (item['part2_yzlb'] === '嘱托长嘱' || item['part2_yzlb'] === '长期医嘱') {
+                type[0].data.push(item);
+            } else {
+                type[1].data.push(item);
+            }
+        });
+        return type;
+    },
 
     completeRow(data, max_length, set_value) {
         data.forEach(item => {

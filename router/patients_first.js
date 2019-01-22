@@ -287,9 +287,12 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 });
 
 
-router.get('/oa/es_list/', async (ctx, next) => {
-    let {query} = ctx.query;
-    let words= query.split('');
+router.post('/oa/es_list/', async (ctx, next) => {
+    console.log(ctx.request.body);
+    let {q, pageindex, pagesize} = ctx.request.body;
+    const start = pageindex - 1;
+    const end = start + pagesize;
+    let words= q.split('');
     words = words.map((word) => {
         return {
             term: {'part5_jcjgms': word}
@@ -331,7 +334,8 @@ router.get('/oa/es_list/', async (ctx, next) => {
                 patient.highlight = zyh_highlight[patient['part1_zyh']];
                 return patient;
             });
-            ctx.body = {...Tips[0], count_num:res.length, data: res};
+            console.log(res.length);
+            ctx.body = {...Tips[0], count_num:res.length, data: res.slice(start, end)};
         }).catch(e => {
             ctx.body = {status: e}
         })

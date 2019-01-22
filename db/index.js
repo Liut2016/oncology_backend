@@ -3,7 +3,7 @@ const esearch = require('elasticsearch');
 let config = {
     host: 'localhost',
     user: 'root',
-    password: '1994311',
+    password: 'lxx123456',
     database: 'project',
     port: 3306,
     multipleStatements: true,

@@ -18,6 +18,38 @@ const part_map = {
     'part5': 'FIRST_RESULTS'
 };
 
+// const map = [
+//     {
+//         name: "省份",
+//         area: [
+//             {province: '安徽', content: []}, {province: '北京', content: []},{province: '重庆', content: []},
+//             {province: '福建', content: []},{province: '甘肃', content: []},{province: '广东', content: []},
+//             {province: '广西', content: []},{province: '贵州', content: []},{province: '海南', content: []},
+//             {province: '河北', content: []},{province: '黑龙江', content: []},{province: '河南', content: []},
+//             {province: '香港', content: []},{province: '湖北', content: []},{province: '湖南', content: []},
+//             {province: '江苏', content: []},{province: '江西', content: []},{province: '吉林', content: []},
+//             {province: '辽宁', content: []},{province: '澳门', content: []},{province: '内蒙古', content: []},
+//             {province: '宁夏', content: []},{province: '青海', content: []},{province: '山西', content: []},
+//             {province: '陕西', content:[
+//                 {city:'西安市', county:['新城区', '碑林区', '莲湖区', '灞桥区', '未央区', '雁塔区', '阎良区', '临潼区', '长安区', '高陵区', '户县', '蓝田县', '周至县' ]},
+//                 {city:'铜川市', county:['王益区', '印台区', '耀州区', '宜君县']},
+//                 {city:'宝鸡市', county:['渭滨区', '金台区', '陈仓区', '凤翔县', '岐山县', '扶风县', '眉县', '陇县', '千阳县', '麟游县', '凤县', '太白县']},
+//                 {city:'咸阳市', county:['秦都区', '杨陵区', '渭城区', '三原县', '泾阳县', '乾县', '礼泉县', '永寿县', '彬县', '长武县', '旬邑县', '淳化县', '武功县', '兴平市']},
+//                 {city:'渭南市', county:['临渭区', '华州区', '潼关县', '大荔县', '合阳县', '澄城县', '蒲城县', '白水县', '富平县', '韩城市', '华阴市']},
+//                 {city:'延安市', county:['宝塔区', '安塞区', '延长县', '延川县', '子长县', '志丹县', '吴起县', '甘泉县', '富县', '洛川县', '宜川县', '黄龙县', '黄陵县']},
+//                 {city:'汉中市', county:['汉台区', '南郑区', '城固县', '洋县', '西乡县', '勉县', '宁强县', '略阳县', '镇巴县', '留坝县', '佛坪县']},
+//                 {city:'榆林市', county:['榆阳区', '横山区', '府谷县', '靖边县', '定边县', '绥德县', '米脂县', '佳县', '吴堡县', '清涧县', '子洲县', '神木市']},
+//                 {city:'安康市', county:['汉滨区', '汉阴县', '石泉县', '宁陕县', '紫阳县', '岚皋县', '平利县', '镇坪县', '旬阳县', '白河县']},
+//                 {city:'商洛市', county:['商州区', '洛南县', '丹凤县', '商南县', '山阳县', '镇安县']},
+//                      ]},
+//             {province: '山东', content: []},{province: '上海', content: []},
+//             {province: '四川', content: []},{province: '台湾', content: []},{province: '天津', content: []},
+//             {province: '新疆', content: []},{province: '西藏', content: []},{province: '云南', content: []},
+//             {province: '浙江', content: []},
+//        ]
+//     }
+// ];
+
 
 const home_keys = 'part1_pid,part1_zylsh,part1_xm,part1_xb,part1_nl,part1_zzd,part1_rysj,part1_cysj';
 
@@ -253,5 +285,83 @@ router.get('/oa/es_list/', async (ctx, next) => {
         console.log('es down');
     });
 });
+
+
+// 给李安：获取年龄、性别、手术名称、主诊断、民族百分比
+router.get('/oa/patients1/dashboard',async(ctx,next) => {
+    let sql = 'SELECT part1_nl,part1_xb,part1_ssmc,part1_zzd,part1_mz,part1_sjzyts,part1_xzz FROM FIRST_HOME;';
+    let age = [];
+    let gender = [];
+    let surgery = [];
+    let diagnosis = [];
+    let treatDays = [];
+    let provinces = [];
+    let city = [];
+    let shannxi = 0;
+    let num1 = 0;
+    let nationalityPercentage = 0;
+
+    await db.query(sql).then(res => {
+        console.log(res);
+        res.forEach( element => {
+            age.push(element.part1_nl);
+            gender.push(element.part1_xb);
+            surgery.push(element.part1_ssmc);
+            diagnosis.push(element.part1_zzd);
+            treatDays.push(element.part1_sjzyts);
+            if(element.part1_mz === '汉族') nationalityPercentage++;
+            // var reg = /.+?(省|市|自治区|自治州)/g;
+            // let s = element.part1_xzz.match(reg);
+            // if(s != null)
+            // {
+            //     let a = s[0];
+            //     let b = s[1];
+            //     if(a.charAt(a.length-1) === '省' || a.slice(a.length-3,a.length) === '自治区' || a === '北京市' || a === '上海市' || a === '天津市' || a === '重庆市')
+            //     {
+            //         provinces.push(a.replace(/\s+/g,''));
+            //     } 
+            //     if(a.charAt(a.length-1) === '市' || a.slice(a.length-3,a.length) === '自治州')
+            //     {
+            //         city.push(a.replace(/\s+/g,''));
+            //     }
+            //     if(b != null)
+            //     {
+            //         if(b.charAt(b.length-1) === '市' || b.slice(b.length-3,b.length) === '自治州')
+            //         {
+            //             city.push(b.replace(/\s+/g,''));
+            //         }
+            //     }
+               
+            // }
+
+            if(element.part1_xzz.indexOf('省')!=-1){
+                let index = element.part1_xzz.indexOf('省');
+                provinces.push(element.part1_xzz.slice(index-2,index));
+                num1++;
+            }
+            if(element.part1_xzz.indexOf('陕西')!=-1){
+                shannxi++;
+            }
+            if(element.part1_xzz.indexOf('宁夏')!=-1){
+                provinces.push('宁夏');
+            }
+            if(element.part1_xzz.indexOf('新疆')!=-1){
+                provinces.push('新疆');
+            }
+            if(element.part1_xzz.indexOf('市')!=-1){
+                let index = element.part1_xzz.indexOf('市');
+                city.push(element.part1_xzz.slice(index-2,index));
+            }
+        });
+        let num = res.length;
+        nationalityPercentage /= num;
+        shannxi /= num1;
+        ctx.body = {...Tips[0],age:age,gender:gender,surgery:surgery,diagnosis:diagnosis,treatDays:treatDays,provinces:provinces,city:city,
+            shannxi:shannxi,nationalityPercentage:nationalityPercentage};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
 
 module.exports = router;

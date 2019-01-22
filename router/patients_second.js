@@ -90,7 +90,7 @@ function unique (arr) {
 
 
 
-//post方法实现二附院所有病人病案首页信息分页
+//post方法全点位过滤
 router.post('/oa/patients2/filter',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);

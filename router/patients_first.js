@@ -462,7 +462,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
 });
 
 // 给李安：获取年龄、性别、手术名称、主诊断、民族百分比
-router.get('/oa/patients1/dashboard',async(ctx,next) => {
+router.get('/oa/dashboard_1',async(ctx,next) => {
     let sql = 'SELECT part1_nl,part1_xb,part1_ssmc,part1_zzd,part1_mz,part1_sjzyts,part1_xzz FROM FIRST_HOME;';
     let age = [];
     let gender = [];
@@ -476,7 +476,6 @@ router.get('/oa/patients1/dashboard',async(ctx,next) => {
     let nationalityPercentage = 0;
 
     await db.query(sql).then(res => {
-        console.log(res);
         res.forEach( element => {
             age.push(element.part1_nl);
             gender.push(element.part1_xb);
@@ -533,6 +532,7 @@ router.get('/oa/patients1/dashboard',async(ctx,next) => {
         ctx.body = {...Tips[0],age:age,gender:gender,surgery:surgery,diagnosis:diagnosis,treatDays:treatDays,provinces:provinces,city:city,
             shannxi:shannxi,nationalityPercentage:nationalityPercentage};
     }).catch((e) => {
+        console.log(e);
         ctx.body = {...Tips[1002],reason:e};
     });
 });

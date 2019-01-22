@@ -19,6 +19,11 @@ const part_map = {
 };
 
 
+const form = {
+    病案首页: 'FIRST_HOME',
+    //费用明细: 'SECOND_FEE',
+}
+
 const home_keys = 'part1_pid,part1_zylsh,part1_xm,part1_xb,part1_nl,part1_zzd,part1_rysj,part1_cysj';
 
 // 查询所有病人记录（已过期）

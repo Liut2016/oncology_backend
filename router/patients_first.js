@@ -114,6 +114,8 @@ router.post('/oa/filter1', async (ctx, next) => {
     let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
     const params = ctx.request.body;
     const start = params['pageindex'] - 1;
+    const related_zyh = [];
+    const zyh_highlight = {};
     if (params.conditions.length === 0) {
         let sql1 = `SELECT ${home_keys} FROM FIRST_HOME LIMIT ${start}, ${params['pagesize']}`;
         let sql2 = `SELECT COUNT(*) FROM FIRST_HOME`;
@@ -131,6 +133,12 @@ router.post('/oa/filter1', async (ctx, next) => {
             ctx.body = {...Tips[1002], reason:e}
         })
     } else {
+        let zyh_array = [];
+        const elastic_conditions = [];
+        const filter_conditions = [];
+        params.conditions.forEach(condition => {
+            condition.isElastic ? elastic_conditions.push(condition) : filter_conditions.push(condition);
+        });
         const condition_array = [];
         const part_has_condition = ['FIRST_HOME a'];
         const all_condition = [];
@@ -162,7 +170,22 @@ router.post('/oa/filter1', async (ctx, next) => {
                 main: 'part5_zyh'
             },
         };
-        params.conditions.forEach(item => {
+        if (elastic_conditions.length > 0) {
+            await elasticQuery(elastic_conditions[0].inputValue).then(res => {
+                res['hits']['hits'].forEach(item => {
+                    let high_light;
+                    related_zyh.push(item._source['part5_zyh']);
+                    Object.keys(item.highlight).forEach((part, index) => {
+                        if (index === 0) {
+                            high_light = item.highlight[part];
+                        }
+                    });
+                    zyh_highlight[item._source['part5_zyh']] = high_light;
+                });
+                zyh_array = generateEsZyh(res);
+            });
+        }
+        filter_conditions.forEach(item => {
             condition_array.push(generateCondition(item));
         });
 
@@ -186,15 +209,20 @@ router.post('/oa/filter1', async (ctx, next) => {
 
         const table_map = part_has_condition.join(',');
         const column_map = `${home_fields.join(',')}`;
-        const condition_map = `${join_array.concat(all_condition).join(' and ')}`;
+        let condition_map = `${join_array.concat(all_condition).join(' and ')}`;
+        if (zyh_array.length > 0 && condition_array.length > 0) {
+            condition_map = `${condition_map} and a.part1_zyh in (${zyh_array.join(',')})`;
+        } else if (zyh_array.length > 0 && condition_array.length === 0) {
+            condition_map = `a.part1_zyh in (${zyh_array.join(',')})`;
+        }
         const sql = `select ${column_map} from ${table_map} where ${condition_map}`;
-        console.log(condition_map);
         await db.query(sql).then(res => {
             const uniq_data = Utils.uniqArray(res, 'part1_pid');
             uniq_data.forEach(item => {
                 item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
                 item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
                 item['part1_xb'] = gender_map[item['part1_xb']];
+                item.highlight = zyh_highlight[item['part1_zyh']];
             });
             ctx.body = {...Tips[0], count_num: uniq_data.length, data: uniq_data.slice(start, start + params['pagesize'])};
         }).catch(e => {
@@ -256,6 +284,53 @@ async function queryPatient(id, lsh) {
     return await Promise.all([home_data, advice_data, lis_data, mazui_data, results_data]);
 }
 
+async function elasticQuery(q) {
+    let words = q.split('');
+    words = words.map((word) => {
+        return {
+            term: {'part5_jcjgms': word}
+        }
+    });
+    const related_zyh = [];
+    const zyh_highlight = {};
+    return await db.es().search({
+        body: {
+            highlight: {
+                require_field_match: false,
+                fields: {
+                    "*": {}
+                }
+            },
+            query: {
+                bool: {
+                    must: words
+                }
+            },
+            from: 0,
+            size: 100
+        },
+        '_source':[
+            'part5_zyh'
+        ]
+    })
+}
+
+function generateEsZyh(res) {
+    const related_zyh = [];
+    const zyh_highlight = {};
+    res['hits']['hits'].forEach(item => {
+        let high_light;
+        related_zyh.push(item._source['part5_zyh']);
+        Object.keys(item.highlight).forEach((part, index) => {
+            if (index === 0) {
+                high_light = item.highlight[part];
+            }
+        });
+        zyh_highlight[item._source['part5_zyh']] = high_light;
+    });
+    return _.uniq(related_zyh);
+}
+
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
     let {pid, zyh} = ctx.params;
@@ -298,8 +373,8 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
 });
 
 
+
 router.post('/oa/es_list/', async (ctx, next) => {
-    console.log(ctx.request.body);
     let {q, pageindex, pagesize} = ctx.request.body;
     const start = pageindex - 1;
     const end = start + pagesize;
@@ -323,7 +398,9 @@ router.post('/oa/es_list/', async (ctx, next) => {
                 bool: {
                     must: words
                 }
-            }
+            },
+            from: 0,
+            size: 100
         },
         '_source':[
             'part5_zyh'

@@ -86,11 +86,10 @@ router.post('/oa/patients1/',async (ctx, next) =>{
         }
     });
     const condition_sql = 'WHERE ' + condition_array.join(' AND ');
-    const start = (pageindex-1) * pagesize;
+    const start = (pageindex-1);
     const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
     let sql1 = `SELECT ${home_fields.join(',')} FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
     let sql2 = `SELECT COUNT(*) FROM FIRST_HOME ${condition_array.length === 0 ? '' :condition_sql};`;
-    //console.log(sql1);
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
@@ -485,7 +484,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
           }
           //选择框查找
           if ((item.isNotNumber === true) && (item.isSelect === true)) {
-  
+
               if (item.selectedInt != null) {
                   where_array.push(`(${item.databaseField} = ${item.selectedInt})`);
               }else {
@@ -501,7 +500,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
               where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
           }
     });
-    
+
     //console.log(searchField);
     where_array.forEach((item, index) => {
           if ( index === where_array.length - 1) {
@@ -517,7 +516,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
     //    where = `(part1_bah=part2_bah) and ${where}`;
     //}
 
-    
+
     let sql1;
     let sql2;
     if((conditions.length!=0)&&(isAll===false)){
@@ -547,7 +546,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
                         key = element[item];
                         if(element[item]===1){
                             element[item]='男';
-                        } 
+                        }
                         if(element[item]===2){
                             element[item]='女';
                         };
@@ -560,7 +559,7 @@ router.post('/oa/patients1/filter',async (ctx, next) =>{
             num = res[1][0]['COUNT(*)'];
         }
         //console.log(num);
-        
+
         //Utils.cleanData(res);
         ctx.body = {...Tips[0],count_num:num,data:data};
         // ctx.body = {...Tips[0],data:data};
@@ -601,7 +600,7 @@ router.get('/oa/dashboard_1',async(ctx,next) => {
             //     if(a.charAt(a.length-1) === '省' || a.slice(a.length-3,a.length) === '自治区' || a === '北京市' || a === '上海市' || a === '天津市' || a === '重庆市')
             //     {
             //         provinces.push(a.replace(/\s+/g,''));
-            //     } 
+            //     }
             //     if(a.charAt(a.length-1) === '市' || a.slice(a.length-3,a.length) === '自治州')
             //     {
             //         city.push(a.replace(/\s+/g,''));
@@ -613,7 +612,7 @@ router.get('/oa/dashboard_1',async(ctx,next) => {
             //             city.push(b.replace(/\s+/g,''));
             //         }
             //     }
-               
+
             // }
 
             if(element.part1_xzz.indexOf('省')!=-1){

@@ -548,15 +548,15 @@ router.get('/oa/patients2/dashboard',async(ctx,next) => {
 
 // 给李安：获取民族、住院天数、住院次数
 router.get('/oa/patients2/dashboard2',async(ctx,next) => {
-    let sql = 'SELECT part1_mz,part1_zycs,part1_sjzyts FROM SECOND_HOME;';
+    let sql = 'SELECT part1_mz,part1_zycs,part1_sjzyts,part1_nl FROM SECOND_HOME;';
     let nationality = []
     let times = [];
     let days = [];
     let aveTimes = 0;
     let aveDays = 0;
+    let aveAge = 0;
     let nationalityPercentage = 0;
     
-
     await db.query(sql).then(res => {
         res.forEach(function(element){
             nationality.push(element.part1_mz);
@@ -564,14 +564,17 @@ router.get('/oa/patients2/dashboard2',async(ctx,next) => {
             days.push(element.part1_sjzyts);
             aveTimes += element.part1_zycs;
             aveDays += element.part1_sjzyts;
+            aveAge += element.part1_nl;
             if(element.part1_mz === '汉族') nationalityPercentage++;
         });
+
         let num = res.length;
         //console.log(num);
         aveTimes /= num;
         aveDays /= num;
         nationalityPercentage /= num;
-        ctx.body = {...Tips[0],nationality:nationality,times:times,days:days,patientsNum:num,nationalityPercentage:nationalityPercentage,aveTimes:aveTimes,aveDays:aveDays};
+        aveAge /= num;
+        ctx.body = {...Tips[0],nationality:nationality,times:times,days:days,patientsNum:num,nationalityPercentage:nationalityPercentage,aveTimes:aveTimes,aveDays:aveDays,aveAge:aveAge};
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e};
     });
@@ -602,4 +605,24 @@ router.get('/oa/patients2/pathology_all',async(ctx,next) => {
         ctx.body = {...Tips[1002],reason:e};
     });
 });
+
+// 给郑莹倩师姐：从lis表中提取QUANTITATIVE_RESULT
+router.post('/oa/patients2/lis/quantitative_result',async(ctx,next) => {
+    let test_order_name = ctx.request.body.test_order_name;
+    let chinesename = ctx.request.body.chinesename;
+
+    let result = [];
+    let sql = `SELECT part3_QUANTITATIVE_RESULT FROM SECOND_LIS WHERE part3_TEST_ORDER_NAME='${test_order_name}' and part3_CHINESE_NAME='${chinesename}';`;
+    await db.query(sql).then(async(res) => {
+        res.forEach(function(element){
+            //console.log(element);
+            result.push(element['part3_QUANTITATIVE_RESULT']);
+        })
+        ctx.body = {...Tips[0],quantitative_result:result};
+    }).catch((e) => {
+        ctx.body = {...Tips[1002],reason:e};
+    });
+});
+
+
 module.exports = router;

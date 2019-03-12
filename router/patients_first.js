@@ -346,7 +346,9 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
                 return item;
             });
         });
+        let i = 0;
         res[4].map(item => {
+            item['no'] = i++;
             item['part5_jcsj'] = item['part5_jcsj'].substr(0, 16);
             item['part5_xb'] = gender_map[res[0][0]['part1_xb']];
             item['part5_nl'] = res[0][0]['part1_nl'];

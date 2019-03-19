@@ -24,7 +24,7 @@ const type = {
 
     //part5
     result_type: [
-        'I', 'V9', 'V3', 'V30', 'V3', 'T', 'T'
+        'I','I', 'V9', 'V3', 'V30', 'V3', 'T', 'T',
     ],
     generateType: function (type) {
         switch (type) {

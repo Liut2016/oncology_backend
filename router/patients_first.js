@@ -258,7 +258,8 @@ async function queryPatient(id, lsh) {
 
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-    let {pid, zyh} = ctx.params;
+    let {pid, zyh} = ctx.params; 
+    
     await queryPatient(pid, zyh).then((res) => {
         const operation_time = res[0][0]['part1_ssrq'];
         const type_lis = Utils.generateCategory(res[2], 'part3_xmmc');
@@ -269,14 +270,18 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
             type.data = Utils.generateCategory(type.data, 'part3_sj');
             type.data.map(item => {
                 item['reference'] = item.type < operation_time ? 'before' : 'after';
+              
                 return item;
             });
         });
+        let i = 0;
         res[4].map(item => {
+            item['no'] = i;
             item['part5_jcsj'] = item['part5_jcsj'].substr(0, 16);
             item['part5_xb'] = gender_map[res[0][0]['part1_xb']];
             item['part5_nl'] = res[0][0]['part1_nl'];
             item['reference'] = item['part5_jcsj'] < operation_time ? '术前': '术后';
+            i++;
             return item;
         });
         ctx.body = {

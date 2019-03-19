@@ -449,22 +449,19 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
          return key.split(',').join('');
      });
      // 存储数据前，先整理出所有数据对应的键值，并对特殊情况进行处理，如费用表中的主键part1_bah
-
      const sql_home = `INSERT INTO SECOND_HOME (${home_key.join(',')}) VALUES ?`;
      const sql_fee = `INSERT INTO SECOND_FEE (${fee_key.join(',')}) VALUES ?`;
 
      const save_home_data = home_db_data.concat(json_home_data.slice(1));
      const save_fee_data = old_fee_data.concat(json_fee_data.slice(1));
      const completed_data = Utils.completeRow(save_home_data, 31, '-');
-     // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
 
+     // **生成存储的sql语句，特别说明xlsx插件对于一行数据的最后一个非空值会认为是最后一项，所以这里得进行补全操作。
      completed_data.forEach((item, index)=> {
          item.push( index > 1928 ? 1 : 0 );
      });
-
      const home_db = await db.query(sql_home, [completed_data]);
      const fee_db = await db.query(sql_fee, [save_fee_data]);
-
      Promise.all([home_db,fee_db]).then((res) => {
          ctx.body = {status: '首页与费用数据导入成功'}
      }).catch((e) => {

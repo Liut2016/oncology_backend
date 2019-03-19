@@ -73,4 +73,5 @@ router.post('/oa/quit', async(ctx, next) => {
     ctx.state = null;
     ctx.body = Tips[0];
 });
+
 module.exports = router;

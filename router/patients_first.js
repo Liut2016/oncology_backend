@@ -2,6 +2,7 @@ const router = require('koa-router')();
 const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
+const fs = require('fs');
 const _ = require('lodash');
 
 const basic_conditions = {
@@ -54,6 +55,77 @@ router.get('/oa/patient/:hos_id', async(ctx, next) => {
     }).catch(e => {
         ctx.body = {...Tips[1002], reason:e}
     })
+});
+
+// 一附院和二附院所有表单字段的map
+async function queryLis(table){
+    let key = {
+        FIRST_LIS : {
+            key1 : 'part3_xmmc',
+            key2 : 'part3_xxmmc'
+        },
+        SECOND_LIS : {
+            key1 : 'part3_TEST_ORDER_NAME',
+            key2 : 'part3_CHINESE_NAME'
+        }
+    };
+    let data = {};
+    sql = `select ${key[table].key1},${key[table].key2} from ${table};`;
+
+    await db.query(sql).then((res) =>{
+        res.forEach(element => {
+            if(element[key[table].key1] in data) data[element[key[table].key1]].push(element[key[table].key2]);
+            else{
+                let s = [];
+                s.push(element[key[table].key2]);
+                data[element[key[table].key1]] = s;
+            }
+        });
+
+        Object.keys(data).forEach(element => {
+            data[element] = _.uniq(data[element]);
+            //data[element] = Array.from(new Set(data[element]));
+        });
+
+    }).catch(e = {
+        
+    });
+    
+    //console.log(data);
+    return data;
+    //return {'检查项目' : data};
+}
+
+
+
+router.get('/oa/index',async(ctx,next) => {
+    //queryLis('FIRST_LIS');
+    //queryLis('FIRST_LIS').then(res => {console.log(res);});
+    //console.log(queryLis('FIRST_LIS');
+    let sql = `select TABLE_NAME,COLUMN_NAME from information_schema.COLUMNS where TABLE_SCHEMA=\'${db.config.database}\';`;
+    await db.query(sql).then(async (res) => {
+        let index = {};
+        res.forEach(element => {
+            if(element['TABLE_NAME'] in index) index[element['TABLE_NAME']].push(element['COLUMN_NAME']);
+            else{
+                let s = [];
+                s.push(element['COLUMN_NAME']);
+                index[element['TABLE_NAME']] = s;
+            }
+        });
+    
+        await Promise.all([queryLis('FIRST_LIS'),queryLis('SECOND_LIS')]).then(res => {
+               index['FIRST_LIS'].push(res[0]); 
+               index['SECOND_LIS'].push(res[1]);
+            });
+  
+        // console.log(index);
+        // console.log(Object.keys(index));
+        
+        ctx.body = {...Tips[0],index:index};
+    }).catch(e => {
+        ctx.body = {...Tips[1002],error:e};
+    });
 });
 
 // 根据住院号查询病人信息和医嘱信息

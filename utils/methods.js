@@ -127,6 +127,8 @@ let util = {
         });
         return type;
     },
+
+    
     generateAdvice(data) {
         const type = [
             {

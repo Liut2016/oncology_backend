@@ -37,5 +37,6 @@ let query = (sql, values) => {
 };
 module.exports = {
     query,
-    es
+    es,
+    config
 };

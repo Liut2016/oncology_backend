@@ -127,6 +127,26 @@ let util = {
         });
         return type;
     },
+    generateAdvice(data) {
+        const type = [
+            {
+                type: '长期医嘱',
+                data: []
+            },
+            {
+                type: '临时医嘱',
+                data: []
+            }
+        ];
+        data.forEach(item => {
+            if (item['part2_yzlb'] === '嘱托长嘱' || item['part2_yzlb'] === '长期医嘱') {
+                type[0].data.push(item);
+            } else {
+                type[1].data.push(item);
+            }
+        });
+        return type;
+    },
 
     completeRow(data, max_length, set_value) {
         data.forEach(item => {
@@ -138,6 +158,18 @@ let util = {
             }
         });
         return data;
+    },
+    uniqArray(array, key) {
+        const element_map = {};
+        const new_arr = [];
+        array.forEach(item => {
+            element_map[item[key]] = item;
+        });
+        Object.keys(element_map).forEach(key => {
+            new_arr.push(element_map[key]);
+
+        });
+        return new_arr;
     }
 };
 

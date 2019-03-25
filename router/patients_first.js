@@ -88,9 +88,9 @@ async function queryLis(table){
         });
 
     }).catch(e = {
-        
+
     });
-    
+
     //console.log(data);
     return data;
     //return {'检查项目' : data};
@@ -113,15 +113,15 @@ router.get('/oa/index',async(ctx,next) => {
                 index[element['TABLE_NAME']] = s;
             }
         });
-    
+
         await Promise.all([queryLis('FIRST_LIS'),queryLis('SECOND_LIS')]).then(res => {
-               index['FIRST_LIS'].push(res[0]); 
+               index['FIRST_LIS'].push(res[0]);
                index['SECOND_LIS'].push(res[1]);
             });
-  
+
         // console.log(index);
         // console.log(Object.keys(index));
-        
+
         ctx.body = {...Tips[0],index:index};
     }).catch(e => {
         ctx.body = {...Tips[1002],error:e};
@@ -149,19 +149,10 @@ router.get('/oa/patient_1/:zyh', async(ctx, next) => {
 router.post('/oa/patients1/',async (ctx, next) =>{
     var pagesize = parseInt(ctx.request.body.pagesize);
     var pageindex = parseInt(ctx.request.body.pageindex);
-
-    var conditions = ctx.request.body.condition;
-    const condition_array = [];
-    Object.keys(conditions).forEach(key => {
-        if (conditions[key] !== '') {
-            condition_array.push(`${basic_conditions[key]} = '${conditions[key]}'`);
-        }
-    });
-    const condition_sql = 'WHERE ' + condition_array.join(' AND ');
     const start = (pageindex-1);
     const home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
-    let sql1 = `SELECT ${home_fields.join(',')} FROM FIRST_HOME  ${condition_array.length === 0 ? '' :condition_sql} limit ${start},${pagesize};`;
-    let sql2 = `SELECT COUNT(*) FROM FIRST_HOME ${condition_array.length === 0 ? '' :condition_sql};`;
+    let sql1 = `SELECT ${home_fields.join(',')} FROM FIRST_HOME  limit ${start},${pagesize};`;
+    let sql2 = `SELECT COUNT(*) FROM FIRST_HOME;`;
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
@@ -490,8 +481,8 @@ function generateEsZyh(res) {
 
 //通过pid获取一附院病人病案首页信息
 /*router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-    let {pid, zyh} = ctx.params; 
-    
+    let {pid, zyh} = ctx.params;
+
     await queryPatient(pid, zyh).then((res) => {
         const operation_time = res[0][0]['part1_ssrq'];
         const type_lis = Utils.generateCategory(res[2], 'part3_xmmc');
@@ -502,7 +493,7 @@ function generateEsZyh(res) {
             type.data = Utils.generateCategory(type.data, 'part3_sj');
             type.data.map(item => {
                 item['reference'] = item.type < operation_time ? 'before' : 'after';
-              
+
                 return item;
             });
         });
@@ -537,8 +528,8 @@ function generateEsZyh(res) {
 
 //通过pid获取一附院病人病案首页信息
 router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
-    let {pid, zyh} = ctx.params; 
-    
+    let {pid, zyh} = ctx.params;
+
     await queryPatient(pid, zyh).then((res) => {
         /*const operation_time = res[0][0]['part1_ssrq'];
         const type_lis = Utils.generateCategory(res[2], 'part3_sj');
@@ -546,16 +537,16 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
             item['reference'] = item.type < operation_time ? 'before' : 'after';
             return item;
         });
-        type_lis.forEach(type => {     
+        type_lis.forEach(type => {
             type.data.forEach(item => {
                 delete item['part3_sj'];
             });
             type.data = Utils.generateCategory(type.data, 'part3_xmmc');
-            
+
         });*/
-       
+
         const operation_time = res[0][0]['part1_ssrq'];
-        
+
         let type_lis = [];
         let type_before = {
             type:"术前检查",
@@ -566,21 +557,21 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
             type:"术后检查",
             data:[]
         };
-        
+
         type_lis.push(type_before);
         type_lis.push(type_after);
         res[2].forEach(item => {
-            
+
             if(item['part3_sj'] < operation_time){
                 type_lis[0].data.push(item);
             }else{
                 type_lis[1].data.push(item);
             }
         });
-        
-        type_lis.forEach(type => {  
-            
-            type.data = Utils.generateCategory(type.data, 'part3_xmmc');   
+
+        type_lis.forEach(type => {
+
+            type.data = Utils.generateCategory(type.data, 'part3_xmmc');
         });
 
         for(let i =0;i<type_lis.length;i++){
@@ -592,7 +583,7 @@ router.get('/oa/patient1/:pid/:zyh',async(ctx,next) => {
         /*if(type_lis[0].data.length===0){
             type_lis.splice(0,1);
         }  */
-        
+
         let i = 0;
         res[4].map(item => {
             item['no'] = i++;

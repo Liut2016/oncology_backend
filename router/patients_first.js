@@ -2,7 +2,8 @@ const router = require('koa-router')();
 const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
-const fs = require('fs');
+const { Parser } = require('json2csv');
+//const fs = require('fs');
 const _ = require('lodash');
 
 const basic_conditions = {
@@ -57,7 +58,7 @@ router.get('/oa/patient/:hos_id', async(ctx, next) => {
     })
 });
 
-// 一附院和二附院所有表单字段的map
+// 查询一附院与二附院的LIS数据
 async function queryLis(table){
     let key = {
         FIRST_LIS : {
@@ -91,13 +92,11 @@ async function queryLis(table){
 
     });
 
-    //console.log(data);
     return data;
-    //return {'检查项目' : data};
 }
 
 
-
+// 一附院和二附院所有表单字段的map
 router.get('/oa/index',async(ctx,next) => {
     //queryLis('FIRST_LIS');
     //queryLis('FIRST_LIS').then(res => {console.log(res);});
@@ -123,6 +122,45 @@ router.get('/oa/index',async(ctx,next) => {
         // console.log(Object.keys(index));
 
         ctx.body = {...Tips[0],index:index};
+    }).catch(e => {
+        ctx.body = {...Tips[1002],error:e};
+    });
+});
+
+// 将Index所有字段信息保存为csv文件并提供下载
+router.get('/oa/exportIndex',async(ctx,next) => {
+    let sql = `select TABLE_NAME,COLUMN_NAME from information_schema.COLUMNS where TABLE_SCHEMA=\'${db.config.database}\';`;
+    await db.query(sql).then(async (res) => {
+        let csvData = [];
+       res.forEach(element => {
+           let data = {};
+           //data = JSON.parse(JSON.stringify(element));
+           data = element;
+           csvData.push(data);
+       });
+       await Promise.all([queryLis('FIRST_LIS'),queryLis('SECOND_LIS')]).then(res => {
+           let temp1 = {
+               TABLE_NAME:"FIRST_LIS",
+               COLUMN_NAME:res[0]
+           };
+           let temp2 = {
+               TABLE_NAME:"SECOND_LIS",
+               COLUMN_NAME:res[1]
+           };
+           csvData.push(temp1);
+           csvData.push(temp2);
+
+        });
+
+        //ctx.body = {...Tips[0],index:index};
+        let fields = Object.keys(csvData[0]);
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(csvData);
+
+        ctx.set('Content-disposition',`attachment;filename=index.csv`);
+        ctx.statusCode = 200;
+        //ctx.body = fs.createReadStream(index);
+        ctx.body = csv;
     }).catch(e => {
         ctx.body = {...Tips[1002],error:e};
     });

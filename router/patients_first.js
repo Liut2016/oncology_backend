@@ -922,9 +922,115 @@ router.get('/oa/dashboard_1',async(ctx,next) => {
     });
 });
 
+/**
+ * POST：向导出数据规则表 FIRST_EXPORTRULE 中新增一条规则
+ * @param {name,rule,user} 规则名称，规则内容，规则创建者
+ * @returns {pid} 规则pid
+ */
+router.post('/oa/patients1/exportrule/insert',async(ctx,next) => {
+    let name = ctx.request.body.name;
+    let rule = JSON.stringify(ctx.request.body.rule);
+    let user = ctx.request.body.user;
+    //console.log(JSON.stringify(rule));
+    
+    let sql = 'INSERT ' +
+              'INTO FIRST_EXPORTRULE (part6_name,part6_rule,part6_createUser) ' + 
+              `VALUES ('${name}','${rule}','${user}');`
+    await db.query(sql).then(res => {
+        ctx.body = {...Tips[0],status:"插入成功",pid:res['insertId']};
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"插入失败",reason:e};
+    });
+});
 
+/**
+ * DELETE：删除导出数据规则表 FIRST_EXPORTRULE 中的规则
+ * @param {pid} 规则pid
+ * @returns {status} 操作状态
+ */
+ router.delete('/oa/patients1/exportrule/delete/:pid',async(ctx,next) => {
+     let params = ctx.params;
+     let {pid} = params;
+     let sql = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
+     
+     await db.query(sql).then(async res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"删除失败",reason:'没有对应的记录'};
+        else {
+            let sql2 = `DELETE FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
+            await db.query(sql2).then(res2 => {
+                console.log(res2);
+                if(res2['affectedRows']) ctx.body = {...Tips[0],status:"删除成功",data:res};
+                else ctx.body = {...Tips[1],status:"删除失败",reason:"操作未成功"};
+            }).catch(e => {
+                ctx.body = {...Tips[1],status:"删除失败",reason:e}
+            });
+        }
+     }).catch(e => {
+        ctx.body = {...Tips[1],status:"删除失败",reason:e};
+     });
+ });
 
+ /**
+ * PUT：修改导出数据规则表 FIRST_EXPORTRULE 中的规则
+ * @param {pid,name,rule,user} 规则pid
+ * @returns {data} 修改前数据
+ */
+router.put('/oa/patients1/exportrule/update',async(ctx,next) => {
+    let pid = ctx.request.body.pid;
+    let name = ctx.request.body.name;
+    let rule = JSON.stringify(ctx.request.body.rule);
+    let user = ctx.request.body.user;
+    //console.log(JSON.stringify(rule));
+    
+    let sql  = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
 
+    await db.query(sql).then(async res => {
+        if(!res.length) ctx.body = {...Tips[0],status:"更新失败",reason:"没有找到相关记录"};
+        else {
+            let sql2 = 'UPDATE FIRST_EXPORTRULE ' +
+            `SET part6_name='${name}',part6_rule='${rule}',part6_updateUser='${user}' ` + 
+            `WHERE part6_pid=${pid};`
+            await db.query(sql2).then(res2 => {
+                if(res2['affectedRows']) ctx.body = {...Tips[0],status:"更新成功",dataInit:res};
+                else ctx.body = {...Tips[0],status:"更新失败",reason:"操作未成功"};
+            }).catch(e => {
+                ctx.body = {...Tips[0],status:"更新失败",reason:e};
+            });
+        }
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"更新失败",reason:e};
+    });
+});
 
+ /**
+ * GET：查看导出数据规则表 FIRST_EXPORTRULE 中的规则
+ * @param {pid} 规则pid
+ * @returns {data} 规则内容
+ */
+router.get('/oa/patients1/exportrule/get/:pid',async(ctx,next) => {
+    let params = ctx.params;
+    let {pid} = params;
+    let sql = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`;
+    await db.query(sql).then(res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有找到相应记录"};
+        else ctx.body = {...Tips[0],status:"查找成功",data:res};
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"查找失败",reason:e};
+    });
+});
 
+ /**
+ * GET：查看导出数据规则表 FIRST_EXPORTRULE 中的所有规则
+ * @param  无
+ * @returns {data} 规则内容
+ */
+router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
+    let sql = `SELECT * FROM FIRST_EXPORTRULE;`;
+    await db.query(sql).then(res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有找到相应记录"};
+        else ctx.body = {...Tips[0],status:"查找成功",length:res.length,data:res};
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"查找失败",reason:e};
+    });
+});
 module.exports = router;

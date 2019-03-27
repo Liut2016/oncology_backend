@@ -14,6 +14,39 @@ const type = Type.type;
 const sec_type = second_Type.type;
 const sec_key = second_Type.key;
 
+router.get('/oa/init_es_results', async (ctx, next) => {
+    let bulkbody = [];
+    const result = fs.readFileSync(path.join(__dirname, `../data/first_data/first_results/results.xlsx`));
+    const result_key = xlsx.parse(result, {cellDates: true})[0].data[0];
+    const result_data = xlsx.parse(result, {cellDates: true})[0].data.slice(1);
+    const sql_key = result_key.map((item, index) => {
+        let key = `part5_${PY_translator(item, {style: PY_translator.STYLE_FIRST_LETTER})}`;
+        return `${key.split(',').join('')}`;
+    });
+    let completed_data = Utils.completeRow(result_data, 7, null);
+    completed_data = completed_data.map((item, i) => {
+        const es_item = {};
+        sql_key.forEach((keyset, index) => {
+            es_item[keyset] = item[index]
+        });
+        return es_item;
+    });
+    completed_data.forEach(item => {
+        bulkbody.push({
+            index: {
+                _index: 'first_results',
+                _type: 'doc'
+            }
+        });
+        bulkbody.push(item);
+    });
+    await db.es().bulk({body: bulkbody}).then(res => {
+        console.log('here');
+    }).catch(err => {
+        console.log(err);
+    })
+});
+
 router.get('/oa/init_weight' ,async (ctx, next) => {
        await init_weight().then(async (res) => {
         let csv_buffer = Buffer.from(fs.readFileSync(path.join(__dirname, '../data/height_Weight.csv') , {encoding: 'binary'}), 'binary');
@@ -566,7 +599,7 @@ router.get('/oa/init_pathology_2', async(ctx,next) => {
     keys.forEach((item,index) => {
         sql_array.push(`part4_${item} ${types[index]}`);
     });
-    
+
     sql_array.unshift('part4_pid INT unsigned not null auto_increment');
     sql_array.push('PRIMARY KEY (part4_pid)');
     sql_array.push('INDEX BAH (part4_bah)');
@@ -656,7 +689,7 @@ router.get('/oa/load_pathology_2',async(ctx,next) => {
     });
 
     //console.log(sqlKey);
-    
+
     //console.log(sqlData);
     const sql_string = `INSERT INTO SECOND_PATHOLOGY (${sqlKey.join(',')}) VALUES ?;`;
     //console.log(sql_string);

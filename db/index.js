@@ -10,7 +10,7 @@ let config = {
 };
 let es = () => {
    return new esearch.Client({
-        host: 'localhost:9200/es_first_results',
+        host: 'localhost:9200',
         log: 'trace'
     });
 };

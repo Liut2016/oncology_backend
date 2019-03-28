@@ -985,16 +985,16 @@ router.put('/oa/patients1/exportrule/update',async(ctx,next) => {
     let sql  = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
 
     await db.query(sql).then(async res => {
-        if(!res.length) ctx.body = {...Tips[0],status:"更新失败",reason:"没有找到相关记录"};
+        if(!res.length) ctx.body = {...Tips[1],status:"更新失败",reason:"没有找到相关记录"};
         else {
             let sql2 = 'UPDATE FIRST_EXPORTRULE ' +
             `SET part6_name='${name}',part6_rule='${rule}',part6_updateUser='${user}' ` + 
             `WHERE part6_pid=${pid};`
             await db.query(sql2).then(res2 => {
                 if(res2['affectedRows']) ctx.body = {...Tips[0],status:"更新成功",dataInit:res};
-                else ctx.body = {...Tips[0],status:"更新失败",reason:"操作未成功"};
+                else ctx.body = {...Tips[1],status:"更新失败",reason:"操作未成功"};
             }).catch(e => {
-                ctx.body = {...Tips[0],status:"更新失败",reason:e};
+                ctx.body = {...Tips[1],status:"更新失败",reason:e};
             });
         }
     }).catch(e => {
@@ -1031,6 +1031,45 @@ router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
         else ctx.body = {...Tips[0],status:"查找成功",length:res.length,data:res};
     }).catch(e => {
         ctx.body = {...Tips[1],status:"查找失败",reason:e};
+    });
+});
+
+ /**
+ * POST：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
+ * @param  {pid} 规则pid
+ * @returns {.csv} 导出数据
+ */
+router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
+    let params = ctx.params;
+    let {pid} = params;
+    let sql1 = `SELECT part6_rule FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`;
+    let data = [];
+    let fields = [];
+    await db.query(sql1).then(async res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有找到相应记录"};
+        else{
+            let jsonString = res[0]['part6_rule'];
+            let rule = JSON.parse(jsonString);
+           for(let element in rule){
+                let sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`
+                fields = fields.concat(rule[element]);
+                await db.query(sql2).then(res2 =>{
+                    //data[element] = res2;
+                    data = data.concat(res2);
+                }).catch(e => {
+                    ctx.body = {...Tips[1],status:"数据查找失败",reason:e};
+                });
+           }
+        }
+        console.log(data);
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(data);
+        ctx.set('Content-disposition','attachment;filename=data.csv');
+        ctx.statusCode = 200;
+        ctx.body = csv;
+        //ctx.body = {...Tips[0],status:"查找成功",data:data};
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });
 });
 module.exports = router;

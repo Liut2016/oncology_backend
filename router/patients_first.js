@@ -1035,7 +1035,7 @@ router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
 });
 
  /**
- * POST：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
+ * GET：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
  * @param  {pid} 规则pid
  * @returns {.csv} 导出数据
  */

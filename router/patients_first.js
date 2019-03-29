@@ -1061,7 +1061,6 @@ router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
                 });
            }
         }
-        console.log(data);
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(data);
         ctx.set('Content-disposition','attachment;filename=data.csv');

@@ -192,8 +192,7 @@ router.post('/oa/filter1', async (ctx, next) => {
     let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj',];
     const params = ctx.request.body;
     const start = params['pageindex'] - 1;
-    const related_zyh = [];
-    const zyh_highlight = {};
+    let zyh_highlight = {};
     console.log(params);
     /**
      * 如果参数中的条件为空数组，则直接查询数量和分页条目
@@ -242,7 +241,7 @@ router.post('/oa/filter1', async (ctx, next) => {
         const elastic_conditions = params.keywords;
         const filter_conditions = params.condition_search;
         const condition_array = [];
-        const part_has_condition = ['FIRST_HOME a'];
+        const part_has_condition = ['FIRST_HOME'];
         const all_condition = [];
         const join_array = [];
         elastic_conditions.forEach( item => {
@@ -285,31 +284,18 @@ router.post('/oa/filter1', async (ctx, next) => {
          * 如果存在ES关键字搜索，则进行相应ES搜索，并生成最后的住院号
          */
         if (elastic_conditions.length > 0) {
-            await elasticQuery(elastic_search_conditons).then(res => {
-                console.log(1);
-                res['hits']['hits'].forEach(item => {
-                    let high_light;
-                    related_zyh.push(item._source['part5_zyh']);
-                    Object.keys(item.highlight).forEach((part, index) => {
-                        if (index === 0) {
-                            high_light = item.highlight[part];
-                        }
-                    });
-                    zyh_highlight[item._source['part5_zyh']] = high_light;
-                });
-                zyh_array = generateEsZyh(res);
-                console.log('zyh_array', zyh_array);
-            });
+            await generateESnumber(elastic_search_conditons.join('')).then(res => {
+                zyh_array = res.zyh;
+                zyh_highlight = res.highlight;
+            })
         }
 
         /**
          * 为所有的sql过滤条件生成相应的sql查询语句
          */
         filter_conditions.forEach(item => {
-            condition_array.push(generateCondition(item));
-            console.log('generateCondition(item):',generateCondition(item));
+            condition_array.push(generateCondition(item, 0));
         });
-        console.log('condition_array:',condition_array);
 
         /**
          * 将上一步的语句放在前面初始化的各个数组中，用于最后的组合
@@ -335,12 +321,10 @@ router.post('/oa/filter1', async (ctx, next) => {
         /**
          * 这里你一定会需要修改，之前只做了part1和part5的联合查询，所以在这里写死了，后面需要修改
          */
-        if ((part_has_condition.length > 0)&&(elastic_search_conditons.length>0)) {
-            join_array.push('part1_zyh = part5_zyh');
-        }
+
         console.log('join_array1:' , join_array);
         home_fields = home_fields.map(item => {
-            return `a.${item}`;
+            return `${item}`;
         });
 
 
@@ -351,30 +335,27 @@ router.post('/oa/filter1', async (ctx, next) => {
         const table_map = part_has_condition.join(',');
         const column_map = `${home_fields.join(',')}`;
         let condition_map = `${join_array.concat(all_condition).join(' and ')}`;
-        console.log('join_array:' , join_array);
-        console.log('all_condition:' , all_condition);
         if (zyh_array.length > 0 && condition_array.length > 0) {
-            condition_map = `${condition_map} and a.part1_zyh in (${zyh_array.join(',')})`;
+            condition_map = `${condition_map} and part1_zyh in (${zyh_array.join(',')})`;
         } else if (zyh_array.length > 0 && condition_array.length === 0) {
-            condition_map = `a.part1_zyh in (${zyh_array.join(',')})`;
+            condition_map = `part1_zyh in (${zyh_array.join(',')})`;
         }else if (zyh_array.length === 0 && condition_array.length > 0) {
             return condition_map ;
         }
-        console.log('condition_map:' , condition_map);
-        const sql = `select ${column_map} from ${table_map} where ${condition_map}`;
+        const sql = `select ${column_map} from ${table_map} ${condition_map.length === 0 ? '' : 'where ' + condition_map}`;
         console.log(sql);
         /**
          * 进行最后的查询
          */
         await db.query(sql).then(res => {
             const uniq_data = Utils.uniqArray(res, 'part1_pid');
+            console.log(uniq_data);
             uniq_data.forEach(item => {
                 item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
                 item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
                 item['part1_xb'] = gender_map[item['part1_xb']];
                 item.highlight = zyh_highlight[item['part1_zyh']];
             });
-            console.log('uniq_datathis:' ,uniq_data);
             ctx.body = {...Tips[0], count_num: uniq_data.length, data: uniq_data.slice(start, start + params['pagesize'])};
         }).catch(e => {
         });
@@ -386,7 +367,7 @@ router.post('/oa/filter1', async (ctx, next) => {
  * @param condition 条件对象
  * @returns {{part: *, sql: string}} 该条件语句包含哪个part的表，对于的sql是什么
  */
-function generateCondition(condition) {
+function generateCondition(condition, type) {
     const table_map = {
         'part1': 'a',
         'part2': 'b',
@@ -398,7 +379,7 @@ function generateCondition(condition) {
         const result = {
             databaseField: condition['databaseField'],
             part: part_map[condition['databaseField'].split('_')[0]],
-            sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']}`
+            sql: `${type === 0 ? '' : table_map[condition['databaseField'].split('_')[0]] + '.'}${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']}`
         };
         return result;
     }
@@ -407,14 +388,14 @@ function generateCondition(condition) {
             const result = {
                 databaseField: condition['databaseField'],
                 part: part_map[condition['databaseField'].split('_')[0]],
-                sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} = ${condition['selectedInt']}`
+                sql: `${type === 0 ? '' : table_map[condition['databaseField'].split('_')[0]] + '.'}${condition['databaseField']} = ${condition['selectedInt']}`
             };
             return result;
         }else{
             const result = {
                 databaseField: condition['databaseField'],
                 part: part_map[condition['databaseField'].split('_')[0]],
-                sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']}  = ${condition['selectedValue']}`
+                sql: `${type === 0 ? '' : table_map[condition['databaseField'].split('_')[0]] + '.'}${condition['databaseField']}  = ${condition['selectedValue']}`
                 // sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} like '%${condition['inputValue']}%'`
             };
             return result;
@@ -425,7 +406,7 @@ function generateCondition(condition) {
             const result = {
                 databaseField: condition['databaseField'],
                 part: part_map[condition['databaseField'].split('_')[0]],
-                sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']} like '%${condition['inputValue']}%'`
+                sql: `${type === 0 ? '' : table_map[condition['databaseField'].split('_')[0]] + '.'}${condition['databaseField']} like '%${condition['inputValue']}%'`
             };
             return result;
         }
@@ -433,7 +414,7 @@ function generateCondition(condition) {
             const result = {
                 databaseField: condition['databaseField'],
                 part: part_map[condition['databaseField'].split('_')[0]],
-                sql: `${table_map[condition['databaseField'].split('_')[0]]}.${condition['databaseField']}  = ${condition['inputValue']}`
+                sql: `${type === 0 ? '' : table_map[condition['databaseField'].split('_')[0]] + '.'}${condition['databaseField']}  = ${condition['inputValue']}`
             };
             return result;
         }
@@ -477,7 +458,7 @@ async function queryPatient(id, lsh) {
 
 async function elasticTesting(q, index) {
     console.log(q);
-    await db.es().search({
+    return await db.es().search({
         index: index,
         body: {
             query: {
@@ -491,18 +472,41 @@ async function elasticTesting(q, index) {
                 fields: {
                     "*": {}
                 }
-            }
-        }
-    }).then(res => {
-        console.log(res);
-    }).catch(err => {
-        console.log(err);
-    })
+            },
+            from: 0,
+            size: 100
+        },
+        _source:[
+            'part5_zyh'
+        ]
+    });
+}
+
+async function generateESnumber(q, index) {
+    const related_zyh = [];
+    const zyh_highlight = {};
+    let zyh_array = [];
+    await elasticTesting(q, index).then(res => {
+        res['hits']['hits'].forEach(item => {
+            let high_light;
+            related_zyh.push(item._source['part5_zyh']);
+            Object.keys(item.highlight).forEach((part, index) => {
+                if (index === 0) {
+                    high_light = item.highlight[part];
+                }
+            });
+            zyh_highlight[item._source['part5_zyh']] = high_light;
+        });
+        zyh_array = generateEsZyh(res);
+    });
+    return {zyh: zyh_array, highlight: zyh_highlight};
 }
 
 router.get('/oa/test_es/:q', async (ctx, next) => {
     let {q} = ctx.params;
-    await elasticTesting(q, 'first_results');
+    await generateESnumber(q, 'first_results').then(res => {
+        ctx.body = res;
+    });
 });
 
 /**
@@ -553,16 +557,8 @@ async function elasticQuery(q) {
  */
 function generateEsZyh(res) {
     const related_zyh = [];
-    const zyh_highlight = {};
     res['hits']['hits'].forEach(item => {
-        let high_light;
         related_zyh.push(item._source['part5_zyh']);
-        Object.keys(item.highlight).forEach((part, index) => {
-            if (index === 0) {
-                high_light = item.highlight[part];
-            }
-        });
-        zyh_highlight[item._source['part5_zyh']] = high_light;
     });
     return _.uniq(related_zyh);
 }

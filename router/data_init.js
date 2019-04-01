@@ -747,6 +747,26 @@ router.get('/oa/generate_json_2', async(ctx, next) => {
 
 });
 
+// 建表：一附院数据导出规则表
+router.get('/oa/init_exportRule', async(ctx,next) => {
+    const sql = 'CREATE TABLE IF NOT EXISTS FIRST_EXPORTRULE (' +
+        'part6_pid INT UNSIGNED NOT NULL AUTO_INCREMENT,' +
+        'part6_name VARCHAR(64) NOT NULL,' +
+        'part6_rule VARCHAR(2048) NOT NULL,' +
+        'part6_createUser VARCHAR(128),' +
+        'part6_createTime DATETIME DEFAULT CURRENT_TIMESTAMP,' +
+        'part6_updateUser VARCHAR(128),' +
+        'part6_updateTime DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +
+        'PRIMARY KEY (part6_pid),' +
+        'INDEX ID (part6_pid)' +
+    ')ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;';
+    await db.query(sql).then(res => {
+        ctx.body = {status:"一附院数据导出规则表FIRST_EXPORTRULE建表成功"};
+    }).catch(e => {
+        ctx.body = {status:"一附院数据导出规则表FIRST_EXPORTRULE建表失败"};
+    });
+});
+
 generateType = (type) => {
     switch (type) {
         case '数字':

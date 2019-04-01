@@ -3,6 +3,10 @@ module.exports = {
         code:0,
         msg:'ok!'
     },
+    1:{
+        code:1,
+        msg:'error!'
+    },
     1002:{
         code:1002,
         msg:'系统繁忙！',

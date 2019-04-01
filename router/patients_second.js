@@ -625,4 +625,222 @@ router.post('/oa/patients2/lis/quantitative_result',async(ctx,next) => {
 });
 
 
+
+// 给郑莹倩师姐：从不同的表中获取字段
+router.post('/oa/patients2/getAll',async(ctx,next) => {
+    let home = ctx.request.body.home;
+    let fee = ctx.request.body.fee;
+    let lis = ctx.request.body.lis;
+    let homeData = [];
+    let feeData = [];
+    let lisData = [];
+    let result = [];
+    if(typeof(home) != 'undefined' || typeof(home) === 'undefined' && typeof(fee) != 'undefined' && typeof(lis) != 'undefined')
+    {
+        let sql1 = '';
+        if(typeof(home) != 'undefined'){
+            home.unshift('part1_cysj');
+            home.unshift('part1_rysj');
+            home.unshift('part1_pid');
+            home.unshift('part1_bah');
+            sql1 = `SELECT ${home.join(',')} FROM SECOND_HOME;`;
+
+        }
+        else{
+            sql1 = 'SELECT part1_bah,part1_pid,part1_rysj,part1_cysj FROM SECOND_HOME;';
+        }
+        
+        
+        await db.query(sql1).then(res => {
+            res.forEach(element => {
+                homeData.push(element);
+            })
+        }).catch(e => {
+            ctx.body = {...Tips[1002],reason:e};
+        });
+    }
+
+    if(typeof(fee) != 'undefined')
+    {
+        fee.unshift('part2_pid');
+        fee.unshift('part2_bah');
+        let sql2 = `SELECT ${fee.join(',')} FROM SECOND_FEE;`;
+        await db.query(sql2).then(res =>{
+            
+            res.forEach(element => {
+                feeData.push(element);
+            });
+        }).catch(e => {
+            ctx.body = {...Tips[1002],reason:e};
+        });
+    }
+
+    if(typeof(lis) != 'undefined')
+    {
+        //lis.unshift('part3_OUTPATIENT_ID');
+        for(let element in lis)
+        {
+            for(let i in lis[element])
+            {
+                let sql3 = `SELECT * FROM SECOND_LIS WHERE part3_TEST_ORDER_NAME='${element}' and part3_CHINESE_NAME='${lis[element][i]}';`;
+                await db.query(sql3).then(res => {
+                    res.forEach(element => {
+                        lisData.push(element);
+                    });
+                }).catch(e => {
+                    ctx.body = {...Tips[1002],reason:e};
+                });
+            }
+        }
+    }
+
+    //console.log(homeData);
+    //console.log(feeData);
+    //ctx.body = {...Tips[0],data:homeData};
+    if(typeof(home) === 'undefined' && typeof(fee) === 'undefined' && typeof(lis) === 'undefined') result.push("非法请求信息");
+    else if(typeof(home) != 'undefined' && typeof(fee) === 'undefined' && typeof(lis) === 'undefined') result = homeData;
+    else if(typeof(home) === 'undefined' && typeof(fee) != 'undefined' && typeof(lis) === 'undefined') result = feeData;
+    else if(typeof(home) === 'undefined' && typeof(fee) === 'undefined' && typeof(lis) != 'undefined') result = Utils.generateCategory(lisData,'part3_TEST_ORDER_NAME');
+    else if(typeof(home) != 'undefined' && typeof(fee) != 'undefined' && typeof(lis) === 'undefined'){
+        for(let i in homeData)
+        {
+            let obj = Object.assign(homeData[i],feeData[i]);
+            delete obj.part2_bah;
+            delete obj.part2_pid;
+            result.push(obj);
+        }
+    }
+    else if(typeof(home) != 'undefined' && typeof(fee) === 'undefined' && typeof(lis) != 'undefined'){
+        /*
+        for(let i in lisData)
+        {
+            for(let j in homeData)
+            {
+                if(lisData[i]['part3_OUTPATIENT_ID'] === homeData[j]['part1_bah'])
+                {
+                    time = Date.parse(lisData[i].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[i].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[i].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[j].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[j].part1_cysj));
+                    if(time >= time1 && time <= time2)
+                    {
+                        let obj = Object.assign(homeData[j],lisData[i]);
+                        result.push(obj);
+                    }
+                }
+            }
+        }
+        */
+       for(let i in homeData)
+        {
+            let lis = [];
+            for(let j in lisData)
+            {
+                if(lisData[j]['part3_OUTPATIENT_ID'] === homeData[i]['part1_bah'])
+                {
+                    time = Date.parse(lisData[j].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[j].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[j].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[i].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[i].part1_cysj));
+                    if(time >= time1 && time <= time2) lis.push(lisData[j]);
+                }
+            }
+            if(!lis.length) continue;
+            let obj = homeData[i];
+            obj['lisData'] = Utils.generateCategory(lis,'part3_TEST_ORDER_NAME');
+            result.push(obj);
+        }
+    }
+    else if(typeof(home) === 'undefined' && typeof(fee) != 'undefined' && typeof(lis) != 'undefined'){
+        /*
+        for(let i in lisData)
+        {
+            for(let j in homeData)
+            {
+                if(lisData[i]['part3_OUTPATIENT_ID'] === homeData[j]['part1_bah'])
+                {
+                    time = Date.parse(lisData[i].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[i].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[i].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[j].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[j].part1_cysj));
+                    if(time >= time1 && time <= time2)
+                    {
+                        let obj = Object.assign(homeData[j],feeData[j],lisData[i]);
+                        delete obj.part1_bah;
+                        delete obj.part1_pid;
+                        delete obj.part1_rysj;
+                        delete obj.part1_cysj;
+                        result.push(obj);
+                    }
+                }
+            }
+        }
+        */
+       for(let i in homeData)
+        {
+            let lis = [];
+            for(let j in lisData)
+            {
+                if(lisData[j]['part3_OUTPATIENT_ID'] === homeData[i]['part1_bah'])
+                {
+                    time = Date.parse(lisData[j].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[j].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[j].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[i].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[i].part1_cysj));
+                    if(time >= time1 && time <= time2) lis.push(lisData[j]);
+                }
+            }
+            if(!lis.length) continue;
+            let obj = feeData[i];
+            obj['lisData'] = Utils.generateCategory(lis,'part3_TEST_ORDER_NAME');
+            delete obj.part1_bah;
+            delete obj.part1_pid;
+            delete obj.part1_rysj;
+            delete obj.part1_cysj;
+            result.push(obj);
+        }
+
+    }
+    else if(typeof(home) != 'undefined' && typeof(fee) != 'undefined' && typeof(lis) != 'undefined'){
+        /*
+        for(let i in lisData)
+        {
+            for(let j in homeData)
+            {
+                if(lisData[i]['part3_OUTPATIENT_ID'] === homeData[j]['part1_bah'])
+                {
+                    time = Date.parse(lisData[i].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[i].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[i].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[j].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[j].part1_cysj));
+                    if(time >= time1 && time <= time2)
+                    {
+                        let obj = Object.assign(homeData[j],feeData[j],lisData[i]);
+                        delete obj.part2_bah;
+                        delete obj.part2_pid;
+                        result.push(obj);
+                    }
+                }
+            }
+        }
+        */
+        for(let i in homeData)
+        {
+            let lis = [];
+            for(let j in lisData)
+            {
+                if(lisData[j]['part3_OUTPATIENT_ID'] === homeData[i]['part1_bah'])
+                {
+                    time = Date.parse(lisData[j].part3_INSPECTION_DATE.substring(0,4)+'/'+lisData[j].part3_INSPECTION_DATE.substring(4,6)+'/'+lisData[j].part3_INSPECTION_DATE.substring(6,8));
+                    time1 = Date.parse(dateModify(homeData[i].part1_rysj));
+                    time2 = Date.parse(dateModify(homeData[i].part1_cysj));
+                    if(time >= time1 && time <= time2) lis.push(lisData[j]);
+                }
+            }
+            if(!lis.length) continue;
+            let obj = Object.assign(homeData[i],feeData[i]);
+            obj['lisData'] = Utils.generateCategory(lis,'part3_TEST_ORDER_NAME');
+            delete obj.part2_bah;
+            delete obj.part2_pid;
+            result.push(obj);
+        }
+    }
+    ctx.body = {...Tips[0],data:result};
+});
+
 module.exports = router;

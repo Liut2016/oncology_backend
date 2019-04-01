@@ -23,6 +23,34 @@ const gender_map = {
     '2': '女'
 };
 
+const condition_part = {
+    'FIRST_HOME': {
+        items: [],
+        table: 'a',
+        main: 'part1_zyh'
+    },
+    'FIRST_ADVICE': {
+        items: [],
+        table: 'b',
+        main: 'part2_zylsh'
+    },
+    'FIRST_LIS': {
+        items: [],
+        table: 'c',
+        main: 'part3_zyh'
+    },
+    'FIRST_MAZUI': {
+        items: [],
+        table: 'd',
+        main: 'part4_zylsh'
+    },
+    'FIRST_RESULTS': {
+        items: [],
+        table: 'e',
+        main: 'part5_zyh'
+    },
+};
+
 const form = {
     病案首页: 'FIRST_HOME',
     //费用明细: 'SECOND_FEE',
@@ -147,9 +175,9 @@ router.get('/oa/patient_1/:zyh', async(ctx, next) => {
 
 //post方法实现一附院所有病人病案首页信息分页
 router.post('/oa/patients1/',async (ctx, next) =>{
-    var pagesize = parseInt(ctx.request.body.pagesize);
-    var pageindex = parseInt(ctx.request.body.pageindex);
-    var conditions = ctx.request.body.condition;
+    let pagesize = parseInt(ctx.request.body.pagesize);
+    let pageindex = parseInt(ctx.request.body.pageindex);
+    let conditions = ctx.request.body.condition;
     const condition_array = [];
     Object.keys(conditions).forEach(key => {
         if (conditions[key] !== '') {
@@ -165,7 +193,7 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
-        num = res[1][0]['COUNT(*)'];
+        let num = res[1][0]['COUNT(*)'];
         res[0].map(item => {
             item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
             item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
@@ -174,12 +202,111 @@ router.post('/oa/patients1/',async (ctx, next) =>{
         });
         data = res[0];
         //Utils.cleanData(res);
-        ctx.body = {...Tips[0],count_num:num,data:data};
-
+        ctx.body = {...Tips[0], count_num: num, data: data};
     }).catch((e) => {
         ctx.body = {...Tips[1002],reason:e}
     })
 });
+
+async function dataFilter(keywords, conditions, start, size) {
+    if (keywords.length === 0 && conditions.length === 0) {
+       return getPagePatients(start, size);
+    } else {
+       return getFilterPatients(keywords, conditions, start, size);
+    }
+}
+
+async function getPagePatients(start, size) {
+    let sql1 = `SELECT ${home_keys} FROM FIRST_HOME LIMIT ${start}, ${size}`;
+    let sql2 = `SELECT COUNT(*) FROM FIRST_HOME`;
+    const get_patient = db.query(sql1);
+    const get_count = db.query(sql2);
+    return Promise.all([get_patient, get_count]).then(res => {
+        res[0].map(item => {
+            /**
+             * 这里需要对时间格式进行一下裁剪
+             * @type {boolean|*|*|string}
+             */
+            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            item['part1_xb'] = gender_map[item['part1_xb']];
+            return item;
+        });
+        return {count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
+    }).catch(e => {
+        return e
+    })
+}
+
+async function getFilterPatients(keywords, conditions, start, size) {
+    let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
+    let zyh_array = [];
+    let zyh_highlight = {};
+    const elastic_search_conditons = [];
+    const elastic_conditions = keywords;
+    const filter_conditions = conditions;
+    const condition_array = [];
+    const part_has_condition = ['FIRST_HOME'];
+    const all_condition = [];
+    const join_array = [];
+    elastic_conditions.forEach( item => {
+        elastic_search_conditons.push(item.name.substr(5));
+    });
+    if (elastic_conditions.length > 0) {
+        await generateESnumber(elastic_search_conditons.join('')).then(res => {
+            zyh_array = res.zyh;
+            zyh_highlight = res.highlight;
+        })
+    }
+
+    filter_conditions.forEach(item => {
+        condition_array.push(generateCondition(item, 0));
+    });
+
+    condition_array.forEach(item => {
+        condition_part[item.part].items.push(item.sql);
+        home_fields.push(item.databaseField);
+    });
+
+    Object.keys(condition_part).forEach((key, index) => {
+        if (condition_part[key].items.length > 0 && index > 0) {
+            part_has_condition.push(`${key} ${condition_part[key].table}`);
+        }
+        all_condition.push(...condition_part[key].items);
+    });
+
+    home_fields = home_fields.map(item => {
+        return `${item}`;
+    });
+
+
+    /**
+     * 这里就是一系列生成inner join语句的步骤，比较繁琐，可以优化
+     * @type {string}
+     */
+    const table_map = part_has_condition.join(',');
+    const column_map = `${home_fields.join(',')}`;
+    let condition_map = `${join_array.concat(all_condition).join(' and ')}`;
+    if (zyh_array.length > 0 && condition_array.length > 0) {
+        condition_map = `${condition_map} and part1_zyh in (${zyh_array.join(',')})`;
+    } else if (zyh_array.length > 0 && condition_array.length === 0) {
+        condition_map = `part1_zyh in (${zyh_array.join(',')})`;
+    }
+    const sql = `select ${column_map} from ${table_map} ${condition_map.length === 0 ? '' : 'where ' + condition_map}`;
+
+    return await db.query(sql).then(res => {
+        const uniq_data = Utils.uniqArray(res, 'part1_pid');
+        uniq_data.forEach(item => {
+            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            item['part1_xb'] = gender_map[item['part1_xb']];
+            item.highlight = zyh_highlight[item['part1_zyh']];
+        });
+        return { count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
+    }).catch(e => {
+        return e;
+    });
+}
 
 /**
  * 目前的ES与filter结合的API
@@ -189,177 +316,20 @@ router.post('/oa/filter1', async (ctx, next) => {
      * 这里规定了所有病案首页包含的字段
      * @type {string[]}
      */
-    let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj',];
     const params = ctx.request.body;
     const start = params['pageindex'] - 1;
-    let zyh_highlight = {};
-    console.log(params);
+    const size = params['pagesize'];
+    const keywords = params.keywords;
+    const conditions = params.condition_search;
     /**
      * 如果参数中的条件为空数组，则直接查询数量和分页条目
      */
-    if ((params.condition_search.length === 0) && (params.keywords.length === 0)) {
-        let sql1 = `SELECT ${home_keys} FROM FIRST_HOME LIMIT ${start}, ${params['pagesize']}`;
-        let sql2 = `SELECT COUNT(*) FROM FIRST_HOME`;
-        const get_patient = db.query(sql1);
-        const get_count = db.query(sql2);
-        await Promise.all([get_patient, get_count]).then(res => {
-            res[0].map(item => {
-                /**
-                 * 这里需要对时间格式进行一下裁剪
-                 * @type {boolean|*|*|string}
-                 */
-                item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
-                item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
-                item['part1_xb'] = gender_map[item['part1_xb']];
-                return item;
-            });
-            ctx.body = {...Tips[0],count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
-        }).catch(e => {
-            ctx.body = {...Tips[1002], reason:e}
-        })
-    } else {
-        /**
-         * 接下来就是较复杂的情况，如果存在过滤条件（无所谓是ES还是sql）
-         * @type {Array} 前端传来的条件对象数组（刘璇规定的各种属性）
-         */
 
-        /**
-         * 初始化住院号数组
-         * @type {Array}
-         */
-        let zyh_array = [];
-
-        /**
-         * 初始化ES条件数组、 sql过滤数组
-         * @type {Array}
-         */
-
-        const elastic_search_conditons = [];
-        // params.conditions.forEach(condition => {
-        //     condition.isElastic ? elastic_conditions.push(condition) : filter_conditions.push(condition);
-        // });
-        const elastic_conditions = params.keywords;
-        const filter_conditions = params.condition_search;
-        const condition_array = [];
-        const part_has_condition = ['FIRST_HOME'];
-        const all_condition = [];
-        const join_array = [];
-        elastic_conditions.forEach( item => {
-            elastic_search_conditons.push(item.name.substr(5));
-        });
-        console.log('elastic_search_conditons:', elastic_search_conditons);
-        /**
-         * 这里对各个部分的条件数组进行了初始化，规定了其主键，以及由于要使用inner join来进行多表查询，所以需要涉及在sql语句中给各个表赋值临时变量（a. b. c....）
-         * @type {{FIRST_MAZUI: {main: string, items: Array, table: string}, FIRST_RESULTS: {main: string, items: Array, table: string}, FIRST_ADVICE: {main: string, items: Array, table: string}, FIRST_LIS: {main: string, items: Array, table: string}, FIRST_HOME: {main: string, items: Array, table: string}}}
-         */
-        const condition_part = {
-            'FIRST_HOME': {
-                items: [],
-                table: 'a',
-                main: 'part1_zyh'
-            },
-            'FIRST_ADVICE': {
-                items: [],
-                table: 'b',
-                main: 'part2_zylsh'
-            },
-            'FIRST_LIS': {
-                items: [],
-                table: 'c',
-                main: 'part3_zyh'
-            },
-            'FIRST_MAZUI': {
-                items: [],
-                table: 'd',
-                main: 'part4_zylsh'
-            },
-            'FIRST_RESULTS': {
-                items: [],
-                table: 'e',
-                main: 'part5_zyh'
-            },
-        };
-
-        /**
-         * 如果存在ES关键字搜索，则进行相应ES搜索，并生成最后的住院号
-         */
-        if (elastic_conditions.length > 0) {
-            await generateESnumber(elastic_search_conditons.join('')).then(res => {
-                zyh_array = res.zyh;
-                zyh_highlight = res.highlight;
-            })
-        }
-
-        /**
-         * 为所有的sql过滤条件生成相应的sql查询语句
-         */
-        filter_conditions.forEach(item => {
-            condition_array.push(generateCondition(item, 0));
-        });
-
-        /**
-         * 将上一步的语句放在前面初始化的各个数组中，用于最后的组合
-         */
-        condition_array.forEach(item => {
-            condition_part[item.part].items.push(item.sql);
-            home_fields.push(item.databaseField);
-        });
-
-
-        /**
-         * 把所有含有过滤条件的part数组找出来，整合成一个条件数组
-         */
-        Object.keys(condition_part).forEach((key, index) => {
-            if (condition_part[key].items.length > 0 && index > 0) {
-                part_has_condition.push(`${key} ${condition_part[key].table}`);
-            }
-            all_condition.push(...condition_part[key].items);
-        });
-        console.log('part_has_condition:',part_has_condition);
-
-
-        /**
-         * 这里你一定会需要修改，之前只做了part1和part5的联合查询，所以在这里写死了，后面需要修改
-         */
-
-        console.log('join_array1:' , join_array);
-        home_fields = home_fields.map(item => {
-            return `${item}`;
-        });
-
-
-        /**
-         * 这里就是一系列生成inner join语句的步骤，比较繁琐，可以优化
-         * @type {string}
-         */
-        const table_map = part_has_condition.join(',');
-        const column_map = `${home_fields.join(',')}`;
-        let condition_map = `${join_array.concat(all_condition).join(' and ')}`;
-        if (zyh_array.length > 0 && condition_array.length > 0) {
-            condition_map = `${condition_map} and part1_zyh in (${zyh_array.join(',')})`;
-        } else if (zyh_array.length > 0 && condition_array.length === 0) {
-            condition_map = `part1_zyh in (${zyh_array.join(',')})`;
-        }else if (zyh_array.length === 0 && condition_array.length > 0) {
-            return condition_map ;
-        }
-        const sql = `select ${column_map} from ${table_map} ${condition_map.length === 0 ? '' : 'where ' + condition_map}`;
-        console.log(sql);
-        /**
-         * 进行最后的查询
-         */
-        await db.query(sql).then(res => {
-            const uniq_data = Utils.uniqArray(res, 'part1_pid');
-            console.log(uniq_data);
-            uniq_data.forEach(item => {
-                item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
-                item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
-                item['part1_xb'] = gender_map[item['part1_xb']];
-                item.highlight = zyh_highlight[item['part1_zyh']];
-            });
-            ctx.body = {...Tips[0], count_num: uniq_data.length, data: uniq_data.slice(start, start + params['pagesize'])};
-        }).catch(e => {
-        });
-    }
+    await dataFilter(keywords, conditions, start, size).then(res => {
+       ctx.body = {...Tips[0], count_num:res.count_num, data:res.data};
+    }).catch(e => {
+        ctx.body = {...Tips[1002], reason: e}
+    });
 });
 
 /**
@@ -774,17 +744,17 @@ function unique (arr) {
 
 //给郑莹倩师姐：筛选基础上返回特定字段
 router.post('/oa/patients1/filter',async (ctx, next) =>{
-    var pagesize = parseInt(ctx.request.body.pagesize);
-    var pageindex = parseInt(ctx.request.body.pageindex);
-    var isAll = ctx.request.body.isAll;
-    var start = pageindex -1;
-    var conditions = ctx.request.body.conditions;
-    var searchField = ctx.request.body.keys;
-    var formType = [];
-    var logicValue = [];
-    var where_array = [];
-    var where = ''  ;
-    var set = '';
+    let pagesize = parseInt(ctx.request.body.pagesize);
+    let pageindex = parseInt(ctx.request.body.pageindex);
+    let isAll = ctx.request.body.isAll;
+    let start = pageindex -1;
+    let conditions = ctx.request.body.conditions;
+    let searchField = ctx.request.body.keys;
+    let formType = [];
+    let logicValue = [];
+    let where_array = [];
+    let where = ''  ;
+    let set = '';
     //console.log(conditions);
     conditions.forEach(item => {
         searchField.push(item.databaseField);
@@ -914,7 +884,7 @@ router.get('/oa/dashboard_1',async(ctx,next) => {
             diagnosis.push(element.part1_zzd);
             treatDays.push(element.part1_sjzyts);
             if(element.part1_mz === '汉族') nationalityPercentage++;
-            // var reg = /.+?(省|市|自治区|自治州)/g;
+            // let reg = /.+?(省|市|自治区|自治州)/g;
             // let s = element.part1_xzz.match(reg);
             // if(s != null)
             // {

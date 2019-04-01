@@ -1039,6 +1039,8 @@ router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
  * @param  {pid} 规则pid
  * @returns {.csv} 导出数据
  */
+
+
 router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
     let params = ctx.params;
     let {pid} = params;
@@ -1067,6 +1069,101 @@ router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
         ctx.statusCode = 200;
         ctx.body = csv;
         //ctx.body = {...Tips[0],status:"查找成功",data:data};
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
+    });
+});
+
+function generateWhere(tableName,patients,isAll){
+    let table = {
+        FIRST_HOME:"part1_zylsh",
+        FIRST_ADVICE:"part2_zyh",
+        FIRST_LIS:"part3_zylsh",
+        FIRST_MAZUI:"part4_zylsh",
+        FIRST_RESULTS:"part5_zyh"
+    }
+    let where = '';
+    if(tableName.length === 1) return where;
+    // for(let i in tableName){
+    //    if(i % 2) where += '=' + table[tableName[i]] + ' AND ';
+    //    else where += table[tableName[i]];
+    //    i--;
+    // }
+    let flag = false;
+    for(let i = 0;i < tableName.length;i++)
+    {
+        if(tableName[i] === 'FIRST_RESULTS'){
+            tableName.splice(i,1);
+            flag = true;
+            break;
+        }
+    }
+    if(flag){
+        tableName.push('FIRST_RESULTS');
+        //let temp = tableName[tableName.length-2];
+        //tableName[tableName.length-2] = `RIGHT(${temp},7)`;
+    }
+    for(let i = 0;i < tableName.length-1;i++)
+    {
+        //if(i % 2) where += '=' + table[tableName[i]] + ' AND ';
+        //else where += table[tableName[i]];
+        if(flag && i === tableName.length-2){
+            where += `RIGHT(${table[tableName[i]]},7)` + '=' + table[tableName[i+1]] + ' AND ';
+        }else{
+            where += table[tableName[i]] + '=' + table[tableName[i+1]] + ' AND ';
+        }
+    }
+    if(isAll) return where.slice(0,-5) + ';';
+    else{
+        let temp = patients.map(element => {return `"${element}"`;});
+        where += `${table[tableName[0]]} in (${temp});`;
+        return where;
+    }
+}
+
+router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
+    let ruleId = ctx.request.body.ruleId;
+    let patients = ctx.request.body.patients;
+    let isAll = ctx.request.body.isAll;
+    let sql1 = `SELECT part6_rule FROM FIRST_EXPORTRULE WHERE part6_pid=${ruleId};`;
+
+    let data = [];
+    let fields = [];
+
+    let tip = 0;
+    let status = '';
+    let reason = '';
+    
+    await db.query(sql1).then(async res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有对应的规则记录"};
+        else{
+            let jsonString = res[0]['part6_rule'];
+            let rule = JSON.parse(jsonString);
+            let tableName = [];
+            let keyName = [];
+            let sql2 = '';
+
+            for(let element in rule){
+                tableName.push(element);
+                keyName = keyName.concat(keyName,rule[element]);
+            }
+            fields = keyName;
+            let where = generateWhere(tableName,patients,isAll);
+            sql2 = `SELECT ${keyName.join(',')} FROM ${tableName.join(',')} WHERE ${where}`;
+            //console.log(sql2);
+            await db.query(sql2).then(res2 => {
+                data = res2;
+            }).catch(e => {
+                ctx.body = {...Tips[1],status:"数据查找失败",reason:e};
+            });
+        }
+        console.log(fields);
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(data);
+        ctx.set('Content-disposition','attachment;filename=data.csv');
+        ctx.statusCode = 200;
+        ctx.body = csv;
+        
     }).catch(e => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });

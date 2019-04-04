@@ -246,7 +246,18 @@ router.post('/oa/patients1/',async (ctx, next) =>{
     })
 });
 
+/**
+ * 根据关键字和条件，以及页码信息，进行过滤查询的函数。 该函数仅仅用于应对不同的情况
+ * @param keywords
+ * @param conditions
+ * @param start
+ * @param size
+ * @returns {Promise<*>}
+ */
 async function dataFilter(keywords, conditions, start, size) {
+    /**
+     * 如果关键字和过滤对象都为0，那么如何处理。这里做了区分。
+     */
     if (keywords.length === 0 && conditions.length === 0) {
        return getPagePatients(start, size);
     } else {
@@ -254,6 +265,12 @@ async function dataFilter(keywords, conditions, start, size) {
     }
 }
 
+/**
+ * 没有任何过滤的情况下，获取病人数据。
+ * @param start
+ * @param size
+ * @returns {Promise<{count_num: *, data: any} | never>}
+ */
 async function getPagePatients(start, size) {
     let sql1 = `SELECT ${home_keys} FROM FIRST_HOME LIMIT ${start}, ${size}`;
     let sql2 = `SELECT COUNT(*) FROM FIRST_HOME`;
@@ -276,6 +293,14 @@ async function getPagePatients(start, size) {
     })
 }
 
+/**
+ * 存在过滤条件的情况下，获取病人数据
+ * @param keywords
+ * @param conditions
+ * @param start
+ * @param size
+ * @returns {Promise<{count_num: number, data: *}>}
+ */
 async function getFilterPatients(keywords, conditions, start, size) {
     let home_fields = ['part1_pid', 'part1_zyh', 'part1_zylsh', 'part1_xm', 'part1_xb', 'part1_nl', 'part1_zzd', 'part1_rysj', 'part1_cysj'];
     let zyh_array = [];
@@ -363,6 +388,19 @@ router.post('/oa/filter1', async (ctx, next) => {
      * 如果参数中的条件为空数组，则直接查询数量和分页条目
      */
 
+    const history_object = {
+        text: params['history'],
+        set: {
+            keywords: keywords,
+            conditions: conditions
+        }
+    };
+    /**
+     * 查询是否需要插入历史记录
+     */
+    insertHistory(history_object).then(res => {
+        console.log('history operation');
+    });
     await dataFilter(keywords, conditions, start, size).then(res => {
        ctx.body = {...Tips[0], count_num:res.count_num, data:res.data};
     }).catch(e => {
@@ -371,9 +409,42 @@ router.post('/oa/filter1', async (ctx, next) => {
 });
 
 /**
- * 这是我实现的，根据你规定的从前端传来的条件对象，生成条件语句的函数
- * @param condition 条件对象
- * @returns {{part: *, sql: string}} 该条件语句包含哪个part的表，对于的sql是什么
+ * 插入历史记录的函数。 会在内部判断是否需要插入新的记录。
+ * @param history
+ * @returns {Promise<void>}
+ */
+async function insertHistory(history) {
+    let existed = 0;
+    await db.query(`select * from FIRST_SEARCH_HISTORY where JSON_CONTAINS(history_set , '${JSON.stringify(history.set)}');`).then(res => {
+        existed = res.length;
+    }).catch(e => {
+        console.log(e);
+    });
+    if (existed === 0) {
+        await db.query(`insert into FIRST_SEARCH_HISTORY(history_text, history_set) values ('${history.text}', '${JSON.stringify(history.set)}');`).then(res => {
+            console.log('插入历史记录');
+        }).catch(e => {
+            console.log('插入失败');
+        })
+    }
+}
+
+/**
+ * 历史记录获取api
+ */
+router.get('/oa/history', async (ctx, next) => {
+   await db.query(`select * from FIRST_SEARCH_HISTORY order by history_pid desc LIMIT 25;`).then(res => {
+       ctx.body = {...Tips[0], data: res}
+   }).catch(e => {
+       ctx.body = {...Tips[1002], e}
+   })
+});
+
+/**
+ * 这里可以根据条件对象，生成条件的sql语句。 其中，type参数取值决定是单表语句，还是跨多表的语句。
+ * @param condition
+ * @param type
+ * @returns {{databaseField: *, part: *, sql: string}}
  */
 function generateCondition(condition, type) {
     const table_map = {
@@ -464,6 +535,12 @@ async function queryPatient(id, lsh) {
     return await Promise.all([home_data, advice_data, lis_data, mazui_data, results_data]);
 }
 
+/**
+ * elasticSearch关键字查询函数。 里面制定了查询的方法，高亮配置，大小等信息。
+ * @param q
+ * @param index
+ * @returns {Promise<*>}
+ */
 async function elasticTesting(q, index) {
     console.log(q);
     return await db.es().search({
@@ -490,6 +567,12 @@ async function elasticTesting(q, index) {
     });
 }
 
+/**
+ * 根据查询关键字q和查询的field，来生成住院号。
+ * @param q
+ * @param index
+ * @returns {Promise<{highlight, zyh: Array}>}
+ */
 async function generateESnumber(q, index) {
     const related_zyh = [];
     const zyh_highlight = {};
@@ -510,6 +593,10 @@ async function generateESnumber(q, index) {
     return {zyh: zyh_array, highlight: zyh_highlight};
 }
 
+
+/**
+ * 测试api，无用
+ */
 router.get('/oa/test_es/:q', async (ctx, next) => {
     let {q} = ctx.params;
     await generateESnumber(q, 'first_results').then(res => {
@@ -517,49 +604,9 @@ router.get('/oa/test_es/:q', async (ctx, next) => {
     });
 });
 
-/**
- * ES搜索，根据输入的关键字进行配置（搜索方式，返回数量与条目）和搜索。这里我采用的方法仍需要在后面进行优化。
- * @param q 关键字
- * @returns {Promise<*>}
- */
-async function elasticQuery(q) {
-    console.log(q);
-    // let words = q.split('');
-    let words = q;
-    console.log("words", words);
-    words = words.map((word) => {
-        return {
-            term: {'part5_jcjgms': word}
-        }
-    });
-    console.log("words", words);
-    const related_zyh = [];
-    const zyh_highlight = {};
-    return await db.es().search({
-        body: {
-            highlight: {
-                require_field_match: false,
-                fields: {
-                    "*": {}
-                }
-            },
-            query: {
-                bool: {
-                    must: words
-                }
-            },
-            from: 0,
-            size: 100
-        },
-        '_source':[
-            'part5_zyh'
-        ]
-    })
-
-}
 
 /**
- * 根据ES搜索返回的结果，来生成相关对应的住院号数组的函数
+ * （旧）根据ES搜索返回的结果，来生成相关对应的住院号数组的函数
  * @param res ES返回结果
  * @returns {Array} 住院号数组
  */
@@ -986,9 +1033,9 @@ router.post('/oa/patients1/exportrule/insert',async(ctx,next) => {
     let rule = JSON.stringify(ctx.request.body.rule);
     let user = ctx.request.body.user;
     //console.log(JSON.stringify(rule));
-    
+
     let sql = 'INSERT ' +
-              'INTO FIRST_EXPORTRULE (part6_name,part6_rule,part6_createUser) ' + 
+              'INTO FIRST_EXPORTRULE (part6_name,part6_rule,part6_createUser) ' +
               `VALUES ('${name}','${rule}','${user}');`
     await db.query(sql).then(res => {
         ctx.body = {...Tips[0],status:"插入成功",pid:res['insertId']};
@@ -1006,7 +1053,7 @@ router.post('/oa/patients1/exportrule/insert',async(ctx,next) => {
      let params = ctx.params;
      let {pid} = params;
      let sql = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
-     
+
      await db.query(sql).then(async res => {
         if(!res.length) ctx.body = {...Tips[1],status:"删除失败",reason:'没有对应的记录'};
         else {
@@ -1035,14 +1082,14 @@ router.put('/oa/patients1/exportrule/update',async(ctx,next) => {
     let rule = JSON.stringify(ctx.request.body.rule);
     let user = ctx.request.body.user;
     //console.log(JSON.stringify(rule));
-    
+
     let sql  = `SELECT * FROM FIRST_EXPORTRULE WHERE part6_pid=${pid};`
 
     await db.query(sql).then(async res => {
         if(!res.length) ctx.body = {...Tips[1],status:"更新失败",reason:"没有找到相关记录"};
         else {
             let sql2 = 'UPDATE FIRST_EXPORTRULE ' +
-            `SET part6_name='${name}',part6_rule='${rule}',part6_updateUser='${user}' ` + 
+            `SET part6_name='${name}',part6_rule='${rule}',part6_updateUser='${user}' ` +
             `WHERE part6_pid=${pid};`
             await db.query(sql2).then(res2 => {
                 if(res2['affectedRows']) ctx.body = {...Tips[0],status:"更新成功",dataInit:res};
@@ -1187,7 +1234,7 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
     let tip = 0;
     let status = '';
     let reason = '';
-    
+
     await db.query(sql1).then(async res => {
         if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有对应的规则记录"};
         else{
@@ -1217,7 +1264,7 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
         ctx.set('Content-disposition','attachment;filename=data.csv');
         ctx.statusCode = 200;
         ctx.body = csv;
-        
+
     }).catch(e => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });

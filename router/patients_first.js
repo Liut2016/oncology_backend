@@ -1222,4 +1222,75 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });
 });
+
+// lis/advice 如何拼接
+// 如果只查lis/advice呢
+// results好像也是单人多条信息？
+
+function dataConcat(data,res)
+{
+    
+}
+router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
+    let ruleId = ctx.request.body.ruleId;
+    let patients = ctx.request.body.patients;
+    let isAll = ctx.request.body.isAll;
+    let sql1 = `SELECT part6_rule FROM FIRST_EXPORTRULE WHERE part6_pid=${ruleId};`;
+
+    let table = {
+        FIRST_HOME:"part1_zylsh",
+        FIRST_ADVICE:"part2_zyh",
+        FIRST_LIS:"part3_zylsh",
+        FIRST_MAZUI:"part4_zylsh",
+        FIRST_RESULTS:"part5_zyh"
+    }
+
+    let data = [];
+    let fields = [];
+    
+    await db.query(sql1).then(async res => {
+        if(!res.length) ctx.body = {...Tips[1],status:"查找失败",reason:"没有对应的规则记录"};
+        else{
+            let jsonString = res[0]['part6_rule'];
+            let rule = JSON.parse(jsonString);
+
+            for(let element in rule){
+                //if(!(table[element] in rule[element])) rule[element].unshift(table[element]);
+                fields = fields.concat(rule[element]);
+                rule[element].unshift(table[element]);
+                
+                let sql2 = '';
+                if(isAll) sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`;
+                else{
+                    if(element == 'FIRST_RESULTS'){
+                        let zyh = patients.map(element => {return element.substring(7);});
+                        sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${table[element]} in (${zyh.join(',')});`;
+                    }
+                    else{
+                        let zylsh = patients.map(element => {return `"${element}"`;});
+                        sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${table[element]} in (${zylsh});`;
+                    } 
+                }
+                //console.log(sql2);
+                await db.query(sql2).then(res2 => {
+                    //console.log(sql2);
+                    let lisTable = ['FIRST_LIS','FIRST_ADVICE','FIRST_RESULTS'];
+                    if(lisTable.includes(element)) res2 = Utils.generateCategory(res2,table[element]);
+                    console.log(res2);
+                }).catch(e => {
+                    ctx.body = {...Tips[1],status:"数据查找失败",reason:e};
+                })
+            }
+        }
+        //const json2csvParser = new Parser({ fields });
+        //const csv = json2csvParser.parse(data);
+        //ctx.set('Content-disposition','attachment;filename=data.csv');
+        //ctx.statusCode = 200;
+        //ctx.body = csv;
+        ctx.body = {...Tips[0],status:"查找成功",data:data};
+        
+    }).catch(e => {
+        ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
+    });
+});
 module.exports = router;

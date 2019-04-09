@@ -1274,6 +1274,29 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
 // 如果只查lis/advice呢
 // results好像也是单人多条信息？
 
+const exportKeyTable = {
+    FIRST_HOME:{
+        key:"part1_zylsh",
+        time:"part1_rysj"// 入院时间
+    },
+    FIRST_ADVICE:{
+        key:"part2_zyh",
+        time:"part2_kssj"// 开始时间
+    },
+    FIRST_LIS:{
+        key:"part3_zylsh",
+        time:"part3_sj"  // 时间
+    },
+    FIRST_MAZUI:{
+        key:"part4_zylsh",
+        time:"part4_ssrq"// 手术日期
+    },
+    FIRST_RESULTS:{
+        key:"part5_zyh",
+        time:"part5_jcsj"// 检查时间
+    }
+}
+
 function dataConcat(data,res)
 {
     
@@ -1283,14 +1306,6 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
     let patients = ctx.request.body.patients;
     let isAll = ctx.request.body.isAll;
     let sql1 = `SELECT part6_rule FROM FIRST_EXPORTRULE WHERE part6_pid=${ruleId};`;
-
-    let table = {
-        FIRST_HOME:"part1_zylsh",
-        FIRST_ADVICE:"part2_zyh",
-        FIRST_LIS:"part3_zylsh",
-        FIRST_MAZUI:"part4_zylsh",
-        FIRST_RESULTS:"part5_zyh"
-    }
 
     let data = [];
     let fields = [];
@@ -1302,27 +1317,47 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
             let rule = JSON.parse(jsonString);
 
             for(let element in rule){
-                //if(!(table[element] in rule[element])) rule[element].unshift(table[element]);
-                fields = fields.concat(rule[element]);
-                rule[element].unshift(table[element]);
-                
                 let sql2 = '';
-                if(isAll) sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`;
-                else{
-                    if(element == 'FIRST_RESULTS'){
-                        let zyh = patients.map(element => {return element.substring(7);});
-                        sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${table[element]} in (${zyh.join(',')});`;
+                if(element != "FIRST_LIS"){
+                    //if(!(table[element] in rule[element])) rule[element].unshift(table[element]);
+                    fields = fields.concat(rule[element]);
+                    if(!(exportKeyTable[element].time in rule[element])) rule[element].unshift(exportKeyTable[element].time);
+                    rule[element].unshift(exportKeyTable[element].key);
+
+                    if(isAll) sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`;
+                    else{
+                        if(element == 'FIRST_RESULTS'){
+                            let zyh = patients.map(element => {return element.substring(7);});
+                            sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${exportKeyTable[element].key} in (${zyh.join(',')});`;
+                        }
+                        else{
+                            let zylsh = patients.map(element => {return `"${element}"`;});
+                            sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${exportKeyTable[element].key} in (${zylsh});`;
+                        } 
                     }
+                }
+                else{
+                    let where = '';
+                    rule[element].forEach(e => {
+                        let xxmmc = e['part3_xxmmc'].map(element => {return `"${element}"`;});
+                        where += `part3_xmmc="${e['part3_xmmc']}" AND part3_xxmmc in (${xxmmc.join(',')}) OR `;
+                    })
+                    where = where.slice(0,-4);
+                    let temp = ["part3_zylsh","part3_zycs","part3_xmmc","part3_xxmmc","part3_sj","part3_jg","part3_ckfw","part3_dw"];
+                    
+                    fields = fields.concat(temp);
+                    
+                    if(isAll) sql2 = `SELECT ${temp.join(',')} FROM ${element} WHERE ${where};`;
                     else{
                         let zylsh = patients.map(element => {return `"${element}"`;});
-                        sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${table[element]} in (${zylsh});`;
-                    } 
+                        sql2 = `SELECT ${temp.join(',')} FROM ${element} WHERE ${exportKeyTable[element].key} in (${zylsh}) AND (${where});`;
+                    }
                 }
                 //console.log(sql2);
                 await db.query(sql2).then(res2 => {
                     //console.log(sql2);
-                    let lisTable = ['FIRST_LIS','FIRST_ADVICE','FIRST_RESULTS'];
-                    if(lisTable.includes(element)) res2 = Utils.generateCategory(res2,table[element]);
+                    //let lisTable = ['FIRST_LIS','FIRST_ADVICE','FIRST_RESULTS'];
+                    //if(lisTable.includes(element)) res2 = Utils.generateCategory(res2,table[element]);
                     console.log(res2);
                 }).catch(e => {
                     ctx.body = {...Tips[1],status:"数据查找失败",reason:e};

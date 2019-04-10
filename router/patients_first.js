@@ -1320,8 +1320,9 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
                 let sql2 = '';
                 if(element != "FIRST_LIS"){
                     //if(!(table[element] in rule[element])) rule[element].unshift(table[element]);
-                    fields = fields.concat(rule[element]);
-                    if(!(exportKeyTable[element].time in rule[element])) rule[element].unshift(exportKeyTable[element].time);
+                    //fields = fields.concat(rule[element]);
+                    //if(!(exportKeyTable[element].time in rule[element])) rule[element].unshift(exportKeyTable[element].time);
+                    rule[element].unshift(exportKeyTable[element].time);
                     rule[element].unshift(exportKeyTable[element].key);
 
                     if(isAll) sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`;
@@ -1345,7 +1346,7 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
                     where = where.slice(0,-4);
                     let temp = ["part3_zylsh","part3_zycs","part3_xmmc","part3_xxmmc","part3_sj","part3_jg","part3_ckfw","part3_dw"];
                     
-                    fields = fields.concat(temp);
+                    //fields = fields.concat(temp);
                     
                     if(isAll) sql2 = `SELECT ${temp.join(',')} FROM ${element} WHERE ${where};`;
                     else{
@@ -1358,18 +1359,124 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
                     //console.log(sql2);
                     //let lisTable = ['FIRST_LIS','FIRST_ADVICE','FIRST_RESULTS'];
                     //if(lisTable.includes(element)) res2 = Utils.generateCategory(res2,table[element]);
-                    console.log(res2);
+                    //console.log(res2);
+                    let res3 = [];
+                    if(element === 'FIRST_HOME'){
+                        res2.forEach(e => {
+                            //let temp = {};
+                            //temp['zylsh'] = e[exportKeyTable[element].key];
+                            //delete e[exportKeyTable[element].key];
+                            //temp['data'] = e;
+                            let temp = e;
+                            temp['zylsh'] = e[exportKeyTable[element].key];
+                            delete temp[exportKeyTable[element].key];
+                            res3.push(temp);
+                        })
+                    }
+                    else if(element === 'FIRST_MAZUI' || element === 'FIRST_RESULTS'){
+                        res2 = Utils.generateCategory(res2,exportKeyTable[element].key);
+                        res2.forEach(e => {
+                            let temp = {};
+                            if(element === 'FIRST_MAZUI') temp['zylsh'] = e.type;
+                            else temp['zyh'] = e.type.toString();
+                            e.data.forEach(ee => {delete ee[exportKeyTable[element].key];});
+
+                            if(e.data.length === 1) {
+                                //temp['data'] = e.data[0];
+                                temp = Object.assign(temp,e.data[0]);
+                            }
+                            else{
+                                let temp2 = {};
+                                e.data.forEach(e2 => {
+
+                                    let time = e2[exportKeyTable[element].time];
+                                    delete e2[exportKeyTable[element].time];
+                                    Object.keys(e2).forEach(e3 => {
+                                        e2[e3] = time + ' : ' + e2[e3];
+                                        if(e3 in temp2) temp2[e3].push(e2[e3]);
+                                        else{
+                                            temp2[e3] = [e2[e3]];
+                                        }
+                                    })
+                                })
+                                //temp['data'] = temp2;
+                                temp = Object.assign(temp,temp2);
+                            }
+                            res3.push(temp);
+                        })
+                    }
+                    else if(element === 'FIRST_LIS'){
+                        res2 = Utils.generateCategory(res2,exportKeyTable[element].key);
+                        res2.forEach(e => {
+                            let temp = {};
+                            temp['zylsh'] = e.type;
+                            e.data.forEach(e => {
+                                delete e[exportKeyTable[element].key];
+                                let key = `${e['part3_xmmc']} ${e['part3_xxmmc']} (单位 : ${e['part3_dw']})`;
+                                if(key in temp) temp[key].push(e['part3_sj'] + ' : ' + e['part3_jg']);
+                                else temp[key] = [e['part3_sj'] + ' : ' + e['part3_jg']];
+                            });
+                            res3.push(temp);
+                        })
+                    }
+                    //console.log(res3);
+                    if(!data.length) data = res3;
+                    else{
+                        for(let i in res3)
+                        {
+                            let flag = false;
+                            for(let j in data)
+                            {
+                                if(element != 'FIRST_RESULTS'){
+                                    if('zylsh' in data[j]){
+                                        if(data[j]['zylsh'] === res3[i]['zylsh']){
+                                            data[j] = Object.assign(data[j],res3[i]);
+                                            flag = true;
+                                        }
+                                    }
+                                    else if('zyh' in data[j]){
+                                        if(data[j]['zyh'] === res3[i]['zylsh'].slice(7)){
+                                            data[j] = Object.assign(data[j],res3[i]);
+                                            flag = true;
+                                        }
+                                    }
+                                }
+                                else{
+                                    if('zylsh' in data[j]){
+                                        if(data[j]['zylsh'].slice(7) === res3[i]['zyh']){
+                                            data[j] = Object.assign(data[j],res3[i]);
+                                            flag = true;
+                                        }
+                                    }
+                                    else if('zyh' in data[j]){
+                                        if(data[j]['zyh'] === res3[i]['zyh']){
+                                            data[j] = Object.assign(data[j],res3[i]);
+                                            flag = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if(!flag) data.push(res3[i]);
+                        }
+                    }
+                    //console.log(data);
                 }).catch(e => {
                     ctx.body = {...Tips[1],status:"数据查找失败",reason:e};
                 })
             }
         }
-        //const json2csvParser = new Parser({ fields });
-        //const csv = json2csvParser.parse(data);
-        //ctx.set('Content-disposition','attachment;filename=data.csv');
-        //ctx.statusCode = 200;
-        //ctx.body = csv;
-        ctx.body = {...Tips[0],status:"查找成功",data:data};
+        //console.log(data);
+        data.forEach(e => {
+            fields = fields.concat(Object.keys(e));
+        })
+        fields = _.uniq(fields);
+        //console.log(fields);
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(data);
+        ctx.set('Content-disposition','attachment;filename=data.csv');
+        ctx.statusCode = 200;
+        ctx.body = csv;
+        //ctx.body = {...Tips[0],status:"查找成功",data:data};
         
     }).catch(e => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};

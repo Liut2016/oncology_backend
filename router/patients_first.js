@@ -3,8 +3,10 @@ const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
 const { Parser } = require('json2csv');
-//const fs = require('fs');
+const fs = require('fs');
 const _ = require('lodash');
+const compressing = require('compressing');
+const pump = require('pump');
 
 const basic_conditions = {
     patientID: 'part1_zylsh',
@@ -1471,13 +1473,56 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         })
         fields = _.uniq(fields);
         //console.log(fields);
+        
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(data);
+        console.log(typeof(csv));
+        let buffer = Buffer.from(csv,'utf8');
+        
+
+        /*
+        compressing.zip.compressFile(buffer,'data.zip').then(() =>{
+            //console.log('enter');
+            //ctx.set('Content-disposition','attachment;filename=data.csv');
+            //ctx.statusCode = 200;
+            //ctx.body = 'data.zip';
+            console.log('success');
+        }).catch(e => {
+            ctx.body = {...Tips[1],status:"压缩失败",reason:e};
+        });*/
+
+        
+        console.log('a');
+        fs.writeFile('data.csv',csv,function(err){
+            if(err) console.log(err);
+        });
+        console.log('b');
+        //compressing.zip.compressFile('data.csv','data.zip')
+        //.then(compressDone)
+        //.catch(handleError);
+
+        const source = fs.createReadStream('data.csv');
+        const target = fs.createWriteStream('data.zip');
+        console.log('bb');
+        pump(source,new compressing.zip.FileStream(),target,err => {
+            if(err) console.log(err);
+            else{
+                console.log('success');
+            }
+        });
+        console.log('c');
+
+        /*
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(data);
         ctx.set('Content-disposition','attachment;filename=data.csv');
         ctx.statusCode = 200;
         ctx.body = csv;
+        //console.log('enter1');
         //ctx.body = {...Tips[0],status:"查找成功",data:data};
-        
+        //console.log('enter2');
+        */
+
     }).catch(e => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });

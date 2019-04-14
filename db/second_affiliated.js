@@ -11,7 +11,7 @@ const type = {
     pathology_type : [
         'VARCHAR(30)','INT','VARCHAR(30)','VARCHAR(90)','VARCHAR(90)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)',
         'INT','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
-        'VARCHAR(300)','VARCHAR(30)','INT','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)'
+        'VARCHAR(300)','VARCHAR(30)','INT','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)','VARCHAR(300)'
     ]
 };
 
@@ -19,7 +19,7 @@ const key = {
     // 病理表
     pathology_key : [
         'hzxm','bah','blzdh','blrq','jbzd','zldx','t','lbjsl','n','yczyyw','yczywz','m','tnmfq','er','pr','her2','her2fish','ki67','bljgmyzhjgbz',
-        'fzfx','xfzzl','xfzzlfa','xfzzlzq','xfzzlpg1','xfzzlpg2','xfzzlpg3'
+        'fzfx','xfzzl','xfzzlfa','xfzzlzq','xfzzlfa2','xfzzlpg1','xfzzlpg2','xfzzlpg3'
     ]
 };
 

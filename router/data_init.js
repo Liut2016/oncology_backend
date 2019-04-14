@@ -641,7 +641,7 @@ function dataSolve(data)
     }
 
     // xlsx插件把最后一个非空值作为最后一项，因此需要把每一条记录补全
-    while(data.length < 26) data.push(null);
+    while(data.length < 27) data.push(null);
 
     // 将病案号处理为数值型
     //if(data[1] != 'null') data[1] = parseInt(data[1]);
@@ -679,7 +679,7 @@ function dataMerge(data)
 // 插入数据：二附院病理表
 router.get('/oa/load_pathology_2',async(ctx,next) => {
     const keys = sec_key.pathology_key;
-    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/病理v1.xlsx'));
+    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/病理v2.xlsx'));
     const data = xlsx.parse(file)[0].data.slice(1);
     const sqlKey = [];
     let sqlData = [];

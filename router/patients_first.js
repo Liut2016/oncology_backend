@@ -10,6 +10,7 @@ const pump = require('pump');
 const path = require('path');
 const send = require('koa-send');
 const archiver = require('archiver');
+const sendfile = require('koa-sendfile');
 
 const basic_conditions = {
     patientID: 'part1_zylsh',
@@ -1668,18 +1669,21 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
 router.post('/test',async (ctx,next) => {
     console.log('a');
     
-    const path = __dirname + '/user.js';
+    
+    const path = 'app.js';
     console.log(path);
     ctx.attachment(path);
     await send(ctx,path);
     
+    
     /*
-    let path = 'tumour death.xlsx';
+    let path = 'data.zip';
     console.log(path);
     ctx.set('Content-disposition',`attachment;filename=${path}`);
     ctx.statusCode = 200;
     ctx.body = fs.createReadStream(path);
     console.log('hhh');
     */
+
 });
 module.exports = router;

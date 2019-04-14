@@ -9,6 +9,21 @@ const form = {
     费用明细: 'SECOND_FEE',
 }
 
+const table = {
+    SECOND_HOME:{
+        key:"part1_bah"
+    },
+    SECOND_FEE:{
+        key:"part2_bah"
+    },
+    SECOND_LIS:{
+        key:"part3_OUTPATIENT_ID"
+    },
+    SECOND_PATHOLOGY:{
+        key:"part4_bah"
+    }
+}
+
 // 查询每一名病人的pid、病案号、姓名、年龄、性别、出院时间
 router.get('/oa/patients_2' ,async (ctx, next) => {
     let sql = 'SELECT part1_pid, part1_bah, part1_xm, part1_nl, part1_xb, part1_cysj FROM SECOND_HOME;';
@@ -842,5 +857,43 @@ router.post('/oa/patients2/getAll',async(ctx,next) => {
     }
     ctx.body = {...Tips[0],data:result};
 });
+
+// 给郑莹倩师姐：从不同的表中获取数据
+router.post('/oa/patients2/getAll2',async(ctx,next) => {
+    let bah = ctx.request.body.bah;
+    let dims = ctx.request.body.dims;
+    let data = {};
+
+    for(let i in dims){
+        let sql = '';
+        if(i != 'SECOND_LIS'){
+            dims[i].unshift(table[i].key);
+            sql = `SELECT ${dims[i].join(',')} FROM ${i} WHERE ${table[i].key} in (${bah.join(',')});`;
+        }
+        else if(i === 'SECOND_LIS'){
+            let where = '';
+            dims[i].forEach(element => {
+                let name = element[Object.keys(element)[0]].map(e => {return `"${e}"`;});
+                where += `part3_TEST_ORDER_NAME="${Object.keys(element)[0]}" AND part3_CHINESE_NAME in (${name}) OR `;
+            })
+            where = `${table[i].key} in (${bah.join(',')}) AND (${where.slice(0,-4)})`;
+            sql = `SELECT * FROM ${i} WHERE ${where};`;
+        }
+
+        await db.query(sql).then(res => {
+            res = Utils.generateCategory(res,table[i].key);
+            res.forEach(element => {
+                element['data'].forEach(e => {delete e[table[i].key];});
+                if(element['type'] in data){
+                    data[element['type']] = Object.assign(data[element['type']],{[i]:element['data']});
+                }
+                else data[element['type']] = {[i]:element['data']};
+            });
+        }).catch(e => {
+            ctx.body = {...Tips[1],reason:e};
+        })
+    }
+    ctx.body = {...Tips[0],data:data};
+})
 
 module.exports = router;

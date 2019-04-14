@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const db = require('../db/index');
+const archiver = require('archiver');
 let util = {
     formatData(params, valids) {
         let res = true;
@@ -172,6 +173,43 @@ let util = {
 
         });
         return new_arr;
+    },
+
+    /**
+    * 压缩文件
+    * @source 文件路径 如'data.csv'
+    * @target 目标路径 如'data.zip'
+    * @name   压缩包内文件名称 如'data.csv'
+    */
+    compressFile(source,target,name){      
+        let output = fs.createWriteStream(target);
+        let archive = archiver('zip',{zlib:{level:9}});
+
+        output.on('close', function() {
+            console.log(archive.pointer() + ' total bytes');
+            console.log('archiver has been finalized and the output file descriptor has closed.');
+        });
+        output.on('end', function() {
+            console.log('Data has been drained');
+        });
+        archive.on('warning', function(err) {
+            if (err.code === 'ENOENT') {
+              console.log('warning');
+            } else {
+              throw err;
+            }
+        });
+        archive.on('error', function(err) {
+            throw err;
+        });
+        
+        archive.pipe(output);
+        let file = source;
+        archive.append(fs.createReadStream(file),{name:name});
+        //archive.append('data.csv',{name:'data.csv'});
+        //archive.directory('test/',false);
+        archive.finalize();
+
     }
 };
 

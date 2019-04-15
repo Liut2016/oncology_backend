@@ -1298,6 +1298,7 @@ const exportKeyTable = {
 }
 
 router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
+    console.log('enter');
     let ruleId = ctx.request.body.ruleId;
     let patients = ctx.request.body.patients;
     let isAll = ctx.request.body.isAll;
@@ -1470,17 +1471,42 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(data);
-        
+
+        /*
         await fs.writeFile('data.csv',csv,async function(err){
             if(err) console.log(err);
-            Utils.compressFile('data.csv','data.zip','data.csv');
+            await Utils.compressFile('data.csv','data.zip','data.csv').then(function (){
+                let zippath = 'data.zip';
+                ctx.body = fs.createReadStream(zippath);
+                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+                //ctx.set('Content-type',mime);
+                ctx.statusCode = 200;
+            });
+        });*/
+        
+        let part1 = await fs.writeFile('data.csv',csv,async function(err){
+            if(err) console.log(err);
+        })
+        let part2 = await Utils.compressFile('data.csv','data.zip','data.csv');
+        
+        Promise.all([part1,part2]).then(function (){
+            let zippath = 'data.zip';
+                ctx.body = fs.createReadStream(zippath);
+                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+                //ctx.set('Content-type',mime);
+                ctx.statusCode = 200;
+        })
+        /*
+        await fs.writeFile('data.csv',csv,async function(err){
+            if(err) console.log(err);
         });
-
+        await Utils.compressFile('data.csv','data.zip','data.csv');
         let zippath = 'data.zip';
-        ctx.body = fs.createReadStream(zippath);
-        ctx.set('Content-disposition',`attachment;filename=${zippath}`);
-        //ctx.set('Content-type',mime);
-        ctx.statusCode = 200;
+                ctx.body = fs.createReadStream(zippath);
+                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+                //ctx.set('Content-type',mime);
+                ctx.statusCode = 200;
+        */
 
         /*
         const list = [{name:'data.csv'}];

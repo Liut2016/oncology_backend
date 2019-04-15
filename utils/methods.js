@@ -181,35 +181,35 @@ let util = {
     * @target 目标路径 如'data.zip'
     * @name   压缩包内文件名称 如'data.csv'
     */
-    compressFile(source,target,name){      
+    compressFile(source,target,name){
         let output = fs.createWriteStream(target);
         let archive = archiver('zip',{zlib:{level:9}});
 
         output.on('close', function() {
             console.log(archive.pointer() + ' total bytes');
             console.log('archiver has been finalized and the output file descriptor has closed.');
+            //resolve(archive);
         });
         output.on('end', function() {
             console.log('Data has been drained');
         });
         archive.on('warning', function(err) {
             if (err.code === 'ENOENT') {
-              console.log('warning');
+            console.log('warning');
             } else {
-              throw err;
+            throw err;
             }
         });
         archive.on('error', function(err) {
             throw err;
         });
-        
+            
         archive.pipe(output);
         let file = source;
         archive.append(fs.createReadStream(file),{name:name});
         //archive.append('data.csv',{name:'data.csv'});
         //archive.directory('test/',false);
-        archive.finalize();
-
+        archive.finalize();    
     }
 };
 

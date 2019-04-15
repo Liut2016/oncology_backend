@@ -1138,13 +1138,8 @@ router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
     });
 });
 
- /**
- * GET：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
- * @param  {pid} 规则pid
- * @returns {.csv} 导出数据
- */
 
-
+/*
 router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
     let params = ctx.params;
     let {pid} = params;
@@ -1272,7 +1267,7 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });
 });
-
+*/
 
 const exportKeyTable = {
     FIRST_HOME:{
@@ -1297,8 +1292,14 @@ const exportKeyTable = {
     }
 }
 
-router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
-    console.log('enter');
+
+ /**
+ * POST：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
+ * @param  {ruleId,patients,isAll} 规则pid,病人病案流水号，是否为全部记录
+ * @returns {.csv} 导出数据
+ */
+
+router.post('/oa/patients1/exportdata',async(ctx,next) => {
     let ruleId = ctx.request.body.ruleId;
     let patients = ctx.request.body.patients;
     let isAll = ctx.request.body.isAll;
@@ -1471,19 +1472,8 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(data);
-
-        /*
-        await fs.writeFile('data.csv',csv,async function(err){
-            if(err) console.log(err);
-            await Utils.compressFile('data.csv','data.zip','data.csv').then(function (){
-                let zippath = 'data.zip';
-                ctx.body = fs.createReadStream(zippath);
-                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
-                //ctx.set('Content-type',mime);
-                ctx.statusCode = 200;
-            });
-        });*/
         
+        /*
         let part1 = await fs.writeFile('data.csv',csv,async function(err){
             if(err) console.log(err);
         })
@@ -1495,18 +1485,42 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
                 ctx.set('Content-disposition',`attachment;filename=${zippath}`);
                 //ctx.set('Content-type',mime);
                 ctx.statusCode = 200;
-        })
-        /*
-        await fs.writeFile('data.csv',csv,async function(err){
-            if(err) console.log(err);
+        })*/
+
+        let output = fs.createWriteStream('data.zip');
+        let archive = archiver('zip',{zlib:{level:9}});
+
+        output.on('close', function() {
+            console.log(archive.pointer() + ' total bytes');
+            console.log('archiver has been finalized and the output file descriptor has closed.');
         });
-        await Utils.compressFile('data.csv','data.zip','data.csv');
+        output.on('end', function() {
+            console.log('Data has been drained');
+        });
+        archive.on('warning', function(err) {
+            if (err.code === 'ENOENT') {
+            console.log('warning');
+            } else {
+            throw err;
+            }
+        });
+        archive.on('error', function(err) {
+            throw err;
+        });
+            
+        archive.pipe(output);
+        archive.append(csv,{name:'data.csv'});
+        //archive.append('data.csv',{name:'data.csv'});
+        //archive.directory('test/',false);
+        await archive.finalize(); 
+
         let zippath = 'data.zip';
-                ctx.body = fs.createReadStream(zippath);
-                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
-                //ctx.set('Content-type',mime);
-                ctx.statusCode = 200;
-        */
+        ctx.body = fs.createReadStream(zippath);
+        ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+        //ctx.set('Content-type',mime);
+        ctx.statusCode = 200;
+
+      
 
         /*
         const list = [{name:'data.csv'}];

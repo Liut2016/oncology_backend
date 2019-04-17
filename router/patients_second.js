@@ -860,10 +860,59 @@ router.post('/oa/patients2/getAll',async(ctx,next) => {
 
 // 给郑莹倩师姐：从不同的表中获取数据
 router.post('/oa/patients2/getAll2',async(ctx,next) => {
-    let bah = ctx.request.body.bah;
+    let pid = ctx.request.body.pid;
     let dims = ctx.request.body.dims;
     let data = {};
+    let bah = [];
 
+    let sql = `SELECT part1_bah FROM SECOND_HOME WHERE part1_pid in (${pid.join(',')});`;
+    await db.query(sql).then(res => {
+        res.forEach(r => {bah.push(r['part1_bah']);});
+    })
+    bah = _.uniq(bah);
+    for(let i in dims){
+        let sql = '';
+        if(i != 'SECOND_LIS'){
+            dims[i].unshift(table[i].key);
+            sql = `SELECT ${dims[i].join(',')} FROM ${i} WHERE ${table[i].key} in (${bah.join(',')});`;
+        }
+        else if(i === 'SECOND_LIS'){
+            let where = '';
+            dims[i].forEach(element => {
+                let name = element[Object.keys(element)[0]].map(e => {return `"${e}"`;});
+                where += `part3_TEST_ORDER_NAME="${Object.keys(element)[0]}" AND part3_CHINESE_NAME in (${name}) OR `;
+            })
+            where = `${table[i].key} in (${bah.join(',')}) AND (${where.slice(0,-4)})`;
+            sql = `SELECT * FROM ${i} WHERE ${where};`;
+        }
+
+        await db.query(sql).then(res => {
+            res = Utils.generateCategory(res,table[i].key);
+            res.forEach(element => {
+                element['data'].forEach(e => {delete e[table[i].key];});
+                if(element['type'] in data){
+                    data[element['type']] = Object.assign(data[element['type']],{[i]:element['data']});
+                }
+                else data[element['type']] = {[i]:element['data']};
+            });
+        }).catch(e => {
+            ctx.body = {...Tips[1],reason:e};
+        })
+    }
+    ctx.body = {...Tips[0],data:data};
+})
+
+
+router.post('/oa/patients2/getAll3',async(ctx,next) => {
+    let pid = ctx.request.body.pid;
+    let dims = ctx.request.body.dims;
+    let bah = [];
+    let data = {};
+    
+    let sql = `SELECT part1_bah FROM SECOND_HOME WHERE part1_pid in (${pid.join(',')});`;
+    await db.query(sql).then(res => {
+        res.forEach(r => {bah.push(r['part1_bah']);});
+    })
     for(let i in dims){
         let sql = '';
         if(i != 'SECOND_LIS'){

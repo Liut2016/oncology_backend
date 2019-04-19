@@ -9,20 +9,20 @@ const form = {
     费用明细: 'SECOND_FEE',
 }
 
-const table = {
-    SECOND_HOME:{
-        key:"part1_bah"
-    },
-    SECOND_FEE:{
-        key:"part2_bah"
-    },
-    SECOND_LIS:{
-        key:"part3_OUTPATIENT_ID"
-    },
-    SECOND_PATHOLOGY:{
-        key:"part4_bah"
-    }
-}
+const part_map = {
+    'part1': 'SECOND_HOME',
+    'part2': 'SECOND_FEE',
+    'part3': 'SECOND_LIS',
+    'part4': 'SECOND_PATHOLOGY',
+};
+
+const table_map = {
+    'part1': 'a',
+    'part2': 'b',
+    'part3': 'c',
+    'part4': 'd',
+};
+
 
 // 查询每一名病人的pid、病案号、姓名、年龄、性别、出院时间
 router.get('/oa/patients_2' ,async (ctx, next) => {
@@ -103,6 +103,10 @@ function unique (arr) {
     return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
 }
 
+function flatten(arr) {
+    return Array.prototype.concat.apply([], arr);
+}
+
 
 
 //post方法全点位过滤
@@ -118,7 +122,7 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
     var where_array = [];
     var where = ''  ;
     var set = '';
-    console.log(conditions);
+    console.log(this.conditions);
     conditions.forEach(item => {
         searchField.push(item.databaseField);
         logicValue.push(item.logicValue);
@@ -228,93 +232,172 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
 
 //给郑莹倩师姐：二附院筛选基础上返回特定字段
 router.post('/oa/patients2/filter2',async (ctx, next) =>{
-    var pagesize = parseInt(ctx.request.body.pagesize);
-    var pageindex = parseInt(ctx.request.body.pageindex);
-    var isAll = ctx.request.body.isAll;
-    var start = pageindex -1;
-    var conditions = ctx.request.body.conditions;
-    var searchField = ctx.request.body.keys;
-    var formType = [];
-    var logicValue = [];
-    var where_array = [];
-    var where = ''  ;
-    var set = '';
-    //console.log(conditions);
-    conditions.forEach(item => {
-        searchField.push(item.databaseField);
-        logicValue.push(item.logicValue);
-        Object.keys(form).forEach( i => {
-            if(i === item.form_type){
-                formType.push(form[i]);
-            }
-        })
-        //console.log(formType);
-
-          //字符型查找
-          if ((item.isNotNumber === true) && (item.isSelect === false)) {
-              if (item.selectedValue === '包含') {
-                  where_array.push(`(${item.databaseField} like '%${item.inputValue}%')`);
-              }
-              if (item.selectedValue === '等于') {
-                  where_array.push(`(${item.databaseField} = '${item.inputValue}')`);
-              }
-          }
-          //选择框查找
-          if ((item.isNotNumber === true) && (item.isSelect === true)) {
-  
-              if (item.selectedInt != null) {
-                  where_array.push(`(${item.databaseField} = ${item.selectedInt})`);
-              }else {
-                  where_array.push(`(${item.databaseField} = '${item.selectedValue}')`);
-              }
-          }
-          //次数查找
-          if (item.isNumber === true) {
-              where_array.push(`(${item.databaseField} between ${item.inputValue1} and ${item.inputValue2})`);
-          }
-          //时间查找
-          if (item.isTime === true) {
-              where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
-          }
-    });
+   
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
+    const pagesize = parseInt(ctx.request.body.pagesize);
+    const pageindex = parseInt(ctx.request.body.pageindex);
+    const start = pageindex -1;
+    console.log("发送主体:", ctx.request.body);
+    const filter_conditions = ctx.request.body.conditions;
+    console.log("filter_conditions", filter_conditions);
+    const searchField = ctx.request.body.keys;
+    console.log("searchField", searchField);
+    const lis_array = [];
+    const general_array = [];
+    const table_list = [];
+    const all_condition = [];
+    const join_array = [];
+    const mainFields = [];
+    const mainFields_join = [];
+    const keysFileds = [];
+    const condition_part = {
+        'SECOND_HOME': {
+            items: [],
+            table: 'a',
+            keys: [],
+            main: 'part1_bah'
+        },
+        'SECOND_FEE': {
+            items: [],
+            table: 'b',
+            keys: [],
+            main: 'part2_bah'
+        },
+        'SECOND_LIS': {
+            items: [],
+            table: 'c',
+            keys: [],
+            main: 'part3_OUTPATIENT_ID'
+        },
+        'SECOND_PATHOLOGY': {
+            items: [],
+            table: 'd',
+            keys: [],
+            main: 'part4_bah'
+        },
+    };
     
-    //console.log(searchField);
-    where_array.forEach((item, index) => {
-          if ( index === where_array.length - 1) {
-              where = ` ${where}${item} `;
-          }else {
-              where = ` ${where}${item}  ${logicValue[index + 1]} `;
-          }
+
+    filter_conditions.forEach(item => {
+        if(item.subdatabaseField!=null){
+            lis_array.push(generateLisCondition(item));
+        }else{
+            general_array.push(generateCondition(item));
+        }
     });
 
-    formType.push('SECOND_HOME');
+    general_array.forEach(item => {
+        condition_part[item.part].items.push(item.sql);
+        home_fields.push(item.databaseField);
+    });
 
-    if(formType.indexOf('SECOND_FEE')!=-1){
-        where = `(part1_bah=part2_bah) and ${where}`;
-    }
-
+    lis_array.forEach(item => {
+        condition_part[item.part].items.push(item.sql);
+        home_fields.concat(item.databaseField);
+    });
     
+    searchField.forEach(item => {
+        //在SECOND—LIS数据里查找,else就在其他表里正常查找
+        if(item.indexOf('part3')!=-1){
+            keysFileds.push('part3');
+            home_fields.push(`c.part3_TEST_ORDER_NAME`, `c.part3_CHINESE_NAME`, `c.part3_QUANTITATIVE_RESULT`);
+            condition_part['SECOND_LIS'].items.push(`and (c.part3_TEST_ORDER_NAME = '${item.split('_')[2]}' and c.part3_CHINESE_NAME = '${item.split('_')[1]}')`);
+            condition_part['SECOND_LIS'].keys.push(item);
+        }else{
+            keysFileds.push(item.split('_')[0]);
+            home_fields.push(`${table_map[item.split('_')[0]]}.${item}`);
+            condition_part[part_map[item.split('_')[0]]].keys.push(item);
+        }
+    });
+    
+    Object.keys(condition_part).forEach((key, index) => {
+        if(index === 0) {
+            table_list.push(`${key} ${condition_part[key].table}`);
+            mainFields.push(`${condition_part[key].table}.${condition_part[key].main}`);
+        }
+        if ((condition_part[key].items.length > 0 && index > 0) || ((condition_part[key].keys.length > 0)&&(index > 0))){
+            table_list.push(`${key} ${condition_part[key].table}`);
+            mainFields.push(`${condition_part[key].table}.${condition_part[key].main}`);
+        }
+        all_condition.push(...condition_part[key].items);
+    });
+
+    all_condition.forEach((key, index) => {
+        let b = all_condition[0];
+        if(key.indexOf('and',0)!=0 && key.indexOf('or',0)!=0 && key.indexOf('AND',0)!=0 && key.indexOf('OR',0)!=0){
+            let a = all_condition[index];
+            all_condition[0] = a;
+            all_condition[index] = b;
+
+        }
+    });
+
+    console.log("all_condition:", all_condition);
+
+    mainFields.forEach((item,index) => {
+        if(index < mainFields.length-1 && mainFields.length > 1){
+            mainFields_join.push(` (${mainFields[index]}=${mainFields[index+1]}) `);
+        }
+    });
+
     let sql1;
     let sql2;
-    if((conditions.length!=0)&&(isAll===false)){
-        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd' , 'part1_pid');
-        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
-        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
-        // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
-    }else if((conditions.length!=0)&&(isAll===true)){
-        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where};`;
-        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
-    }else{
-        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
+    let condition_map = `${join_array.concat(all_condition).join(' ')}`;
+    // let unique_home_fields = flatten(home_fields);
+    console.log("home_fields:", home_fields);
+    console.log("table_list:", table_list);
+    console.log(" condition_map:",  condition_map);
+    console.log("mainFields_join:", mainFields_join);
+    console.log("mainFields[0]:",mainFields[0]);
+    console.log("unique(keysFileds)[0]:",unique(keysFileds)[0]);
+    if((searchField.length!=0) && (filter_conditions.length!=0)){
+        console.log("unique(home_fields).join:", unique(home_fields).join(','));
+        if(unique(keysFileds).length===1 && mainFields.length===1 && mainFields[0].indexOf('part1')!=-1 && unique(keysFileds)[0]==='part1'){
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where  ${condition_map} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where  ${condition_map}) as temp ;`;
+        }else{
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map}) as temp ;`;
+        }
+       
+    }else if((searchField.length!=0)&&(filter_conditions.length===0)){
+        //key字段只在part1里，不包含part3
+        if(unique(keysFileds).length===1 && keysFileds.indexOf('part3')===-1 && unique(keysFileds)[0]==='part1'){
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} ) as temp ;`;
+        }else if(keysFileds.indexOf('part3')===-1 && keysFileds.indexOf('part2')!=-1 ||  keysFileds.indexOf('part4')!=-1){  
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')}  limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} ) as temp ;`;
+        }else if(keysFileds.indexOf('part3')!=-1){
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')}  ${condition_map} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} ${condition_map}) as temp ;`;
+        }
+    }else if((searchField.length===0)&&(filter_conditions.length===0)){
+        sql1 = `SELECT part1_pid, part1_xm, part1_bah, part1_rysj, part1_ryzd FROM SECOND_HOME limit ${start},${pagesize};`
+        console.log("查询语句2:", sql1);
         sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
+    } else if((searchField.length===0)&&(filter_conditions.length!=0)){
+        if(mainFields.length===1 && mainFields.split('.')[1].split('_')[0]==='part1'){
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map}) as temp ;`;
+        }else{
+            sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map} limit ${start},${pagesize};`;
+            console.log("查询语句1:", sql1);
+            sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map}) as temp ;`;
+        }
     }
 
-   //console.log(sql1);
-   //console.log(sql2);
+
     const part1 = await db.query(sql1);
     const part2 = await db.query(sql2);
     Promise.all([part1, part2]).then((res) => {
-        //console.log(res);
+        console.log("查询结果：", res);
         data = res[0];
         data.forEach(element => {
                 Object.keys(element).forEach( item=>{
@@ -329,7 +412,7 @@ router.post('/oa/patients2/filter2',async (ctx, next) =>{
                     }
                 })
              })
-        if(conditions.length!=0){
+        if(filter_conditions.length!=0){
             num = res[1][0]['num'];
         }else{
             num = res[1][0]['COUNT(*)'];
@@ -344,6 +427,115 @@ router.post('/oa/patients2/filter2',async (ctx, next) =>{
         ctx.body = {...Tips[1002],reason:e}
     })
 });
+
+function generateCondition(condition) {
+    const list = table_map[condition['databaseField'].split('_')[0]];
+    if (condition['isNumber'] === true ) {
+        const result = {
+            databaseField: `${list}.${condition['databaseField']}`,
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']} between ${condition['inputValue1']} and ${condition['inputValue2']})`
+        };
+        return result;
+    }
+    if ((condition['isNotNumber']===true)&&(condition['isSelect']==true)) {
+        if (condition['databaseField'] === 'part1_xb') {
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']} = ${condition['selectedInt']})`
+            };
+            return result;
+        }else{
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}  = '${condition['selectedValue']}')`
+            };
+            return result;
+        }
+    }
+    if ((condition['isNotNumber']===true)&&(condition['isSelect']===false)) {
+        if (condition['selectedValue'] === '包含') {
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']} like '%${condition['inputValue']}%')`
+            };
+            return result;
+        }
+        if(condition['selectedValue'] === '等于') {
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}  = '${condition['inputValue']}')`
+            };
+            return result;
+        }
+    }
+    if (condition['isTime'] === true) {
+        const result = {
+            databaseField: `${list}.${condition['databaseField']}`,
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } '(${list}.${condition['databaseField']} between ${condition['startTime']}' and '${condition['endTime']}')`
+        };
+        return result;
+    }
+}
+
+function generateLisCondition(condition) {
+    const list = table_map[condition['databaseField'].split('_')[0]];
+    if (condition['isNumber'] === true) {
+        const result = {
+            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
+                  and (${list}.part3_QUANTITATIVE_RESULT between ${condition['inputValue1']} and ${condition['inputValue2']}))`
+        };
+        return result;
+    }
+    if ((condition['isNotNumber']===true)&&(condition['isSelect']==true)) {
+        const result = {
+            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
+                  and (${list}.part3_QUANTITATIVE_RESULT  = '${condition['selectedValue']}'))`
+
+        };
+        return result;
+    }
+    if ((condition['isNotNumber']===true)&&(condition['isSelect']===false)) {
+        if (condition['selectedValue'] === '包含') {
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
+                    and (${list}.part3_QUANTITATIVE_RESULT like '%${condition['inputValue']}%'))`
+            };
+            return result;
+        }
+        if(condition['selectedValue'] === '等于') {
+            const result = {
+                databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+                part: part_map[condition['databaseField'].split('_')[0]],
+                sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}') and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
+                     and (${list}.part3_QUANTITATIVE_RESULT = '${condition['inputValue']}'))`
+            };
+            return result;
+        }
+    }
+    if (condition['isTime'] === true) {
+        const result = {
+            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            part: part_map[condition['databaseField'].split('_')[0]],
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}' 
+                  and (${list}.part3_QUANTITATIVE_RESULT between '${condition['startTime']}' and '${condition['endTime']}'))`
+        };
+        return result;
+    }
+}
+
+
 
 
 

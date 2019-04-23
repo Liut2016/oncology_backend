@@ -1,8 +1,16 @@
+
 const router = require('koa-router')();
 const Utils = require('../utils/methods');
 const Tips = require('../utils/tips');
 const db = require('../db/index');
 const _ = require('lodash');
+const { Parser } = require('json2csv');
+const fs = require('fs');
+const compressing = require('compressing');
+const pump = require('pump');
+const path = require('path');
+const send = require('koa-send');
+const archiver = require('archiver');
 
 const form = {
     病案首页: 'SECOND_HOME',
@@ -21,6 +29,11 @@ const table_map = {
     'part2': 'b',
     'part3': 'c',
     'part4': 'd',
+};
+
+const gender_map = {
+    '1': '男',
+    '2': '女'
 };
 
 
@@ -108,129 +121,230 @@ function flatten(arr) {
 }
 
 
-
 //post方法全点位过滤
 router.post('/oa/patients2/filter',async (ctx, next) =>{
-    var pagesize = parseInt(ctx.request.body.pagesize);
-    var pageindex = parseInt(ctx.request.body.pageindex);
-    var isAll = ctx.request.body.isAll;
-    var start = pageindex -1;
-    var conditions = ctx.request.body.conditions;
-    var searchField = [];
-    var formType = [];
-    var logicValue = [];
-    var where_array = [];
-    var where = ''  ;
-    var set = '';
-    console.log(this.conditions);
-    conditions.forEach(item => {
-        searchField.push(item.databaseField);
-        logicValue.push(item.logicValue);
-        Object.keys(form).forEach( i => {
-            if(i === item.form_type){
-                formType.push(form[i]);
-            }
-        })
-        console.log(formType);
+     /**
+     * 这里规定了所有病案首页包含的字段
+     * @type {string[]}
+     */
+    const params = ctx.request.body;
+    const start = params['pageindex'] - 1;
+    const size = params['pagesize'];
+    const conditions = params.conditions;
+    /**
+     * 如果参数中的条件为空数组，则直接查询数量和分页条目
+     */
 
-          //字符型查找
-          if ((item.isNotNumber === true) && (item.isSelect === false)) {
-              if (item.selectedValue === '包含') {
-                  where_array.push(`(${item.databaseField} like '%${item.inputValue}%')`);
-              }
-              if (item.selectedValue === '等于') {
-                  where_array.push(`(${item.databaseField} = '${item.inputValue}')`);
-              }
-          }
-          //选择框查找
-          if ((item.isNotNumber === true) && (item.isSelect === true)) {
-  
-              if (item.selectedInt != null) {
-                  where_array.push(`(${item.databaseField} = ${item.selectedInt})`);
-              }else {
-                  where_array.push(`(${item.databaseField} = '${item.selectedValue}')`);
-              }
-          }
-          //次数查找
-          if (item.isNumber === true) {
-              where_array.push(`(${item.databaseField} between ${item.inputValue1} and ${item.inputValue2})`);
-          }
-          //时间查找
-          if (item.isTime === true) {
-              where_array.push(`(${item.databaseField} between '${item.startTime}' and '${item.endTime}')`);
-          }
-    });
-    
-  
-    console.log(searchField);
-    where_array.forEach((item, index) => {
-          if ( index === where_array.length - 1) {
-              where = ` ${where}${item} `;
-          }else {
-              where = ` ${where}${item}  ${logicValue[index + 1]} `;
-          }
-    });
+    console.log("条件：",conditions );
 
-    formType.push('SECOND_HOME');
-
-    if(formType.indexOf('SECOND_FEE')!=-1){
-        where = `(part1_bah=part2_bah) and ${where}`;
-    }
-
-    
-    let sql1;
-    let sql2;
-    if((conditions.length!=0)&&(isAll===false)){
-        searchField.push('part1_bah', 'part1_xm', 'part1_rysj', 'part1_ryzd' , 'part1_pid');
-        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
-        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
-        // sql2 = `SELECT ${unique(searchField)}, count(1) AS num FROM ${unique(formType)} where ${where} GROUP BY ${unique(searchField)};`;
-    }else if((conditions.length!=0)&&(isAll===true)){
-        sql1 = `SELECT ${unique(searchField)} FROM ${unique(formType)} where ${where} limit ${start},${pagesize};`;
-        sql2 = `SELECT count(1) as num from (SELECT ${unique(searchField)}  FROM ${unique(formType)} where ${where}) as temp ;`;
-    }else{
-        sql1 = `SELECT part1_xm,part1_bah,part1_rysj,part1_ryzd,part1_pid FROM SECOND_HOME limit ${start},${pagesize};`
-        sql2 = 'SELECT COUNT(*) FROM SECOND_HOME;'
-    }
-
-   console.log(sql1);
-   console.log(sql2);
-    const part1 = await db.query(sql1);
-    const part2 = await db.query(sql2);
-    Promise.all([part1, part2]).then((res) => {
-        console.log(res);
-        data = res[0];
-        data.forEach(element => {
-                Object.keys(element).forEach( item=>{
-                    if (item === 'part1_xb') {
-                        key = element[item];
-                        if(element[item]===1){
-                            element[item]='男';
-                        } 
-                        if(element[item]===2){
-                            element[item]='女';
-                        };
-                    }
-                })
-             })
-        if(conditions.length!=0){
-            num = res[1][0]['num'];
-        }else{
-            num = res[1][0]['COUNT(*)'];
+    const history_object = {
+        text: params['history'],
+        set: {
+            conditions: conditions
         }
-        console.log(num);
-        
-        //Utils.cleanData(res);
-        ctx.body = {...Tips[0],count_num:num,data:data};
-        // ctx.body = {...Tips[0],data:data};
+    };
+    /**
+     * 查询是否需要插入历史记录
+     */
 
-    }).catch((e) => {
-        ctx.body = {...Tips[1002],reason:e}
-    })
+    insertHistory(history_object).then(res => {
+        console.log('history operation');
+    });
+    await dataFilter(conditions, start, size).then(res => {
+       ctx.body = {...Tips[0], count_num:res.count_num, data:res.data};
+    }).catch(e => {
+        ctx.body = {...Tips[1002], reason: e}
+    });
+    
 });
 
+async function insertHistory(history) {
+    let existed = 0;
+    await db.query(`select * from SECOND_SEARCH_HISTORY where JSON_CONTAINS(history_set , '${JSON.stringify(history.set)}');`).then(res => {
+        existed = res.length;
+    }).catch(e => {
+        console.log(e);
+    });
+    if (existed === 0) {
+        await db.query(`insert into SECOND_SEARCH_HISTORY(history_text, history_set) values ('${history.text}', '${JSON.stringify(history.set)}');`).then(res => {
+            console.log('插入历史记录');
+        }).catch(e => {
+            console.log('插入失败');
+        })
+    }
+}
 
-//给郑莹倩师姐：二附院筛选基础上返回特定字段
+async function dataFilter(conditions, start, size) {
+    /**
+     * 如果关键字和过滤对象都为0，那么如何处理。这里做了区分。
+     */
+    if (conditions.length === 0) {
+       return getPagePatients(start, size);
+    } else {
+       return getFilterPatients(conditions, start, size);
+    }
+    console.log("数据传递成功");
+}
+
+/**
+ * 历史记录获取api
+ */
+router.get('/oa/history', async (ctx, next) => {
+    await db.query(`select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`).then(res => {
+        ctx.body = {...Tips[0], data: res}
+    }).catch(e => {
+        ctx.body = {...Tips[1002], e}
+    })
+ });
+
+/**
+ * 没有任何过滤的情况下，获取病人数据。
+ * @param start
+ * @param size
+ * @returns {Promise<{count_num: *, data: any} | never>}
+ */
+async function getPagePatients(start, size) {
+    console.log('无过滤filter');
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
+    let sql1 = `SELECT ${home_fields} FROM SECOND_HOME LIMIT ${start}, ${size}`;
+    let sql2 = `SELECT COUNT(*) FROM SECOND_HOME`;
+    const get_patient = db.query(sql1);
+    const get_count = db.query(sql2);
+    return Promise.all([get_patient, get_count]).then(res => {
+        res[0].map(item => {
+            /**
+             * 这里需要对时间格式进行一下裁剪
+             * @type {boolean|*|*|string}
+             */
+            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            item['part1_xb'] = gender_map[item['part1_xb']];
+            return item;
+        });
+        return {count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
+    }).catch(e => {
+        return e
+    })
+}
+
+
+
+/**
+ * 存在过滤条件的情况下，获取病人数据
+ * @param conditions
+ * @param start
+ * @param size
+ * @returns {Promise<{count_num: number, data: *}>}
+ */
+async function getFilterPatients(conditions, start, size) {
+   
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
+    // const pagesize = parseInt(ctx.request.body.pagesize);
+    // const pageindex = parseInt(ctx.request.body.pageindex);
+    // const start = pageindex -1;
+    const filter_conditions = conditions;
+    const lis_array = [];
+    const general_array = [];
+    const table_list = [];
+    const all_condition = [];
+    const join_array = [];
+    const mainFields = [];
+    const mainFields_join = [];
+    const condition_part = {
+        'SECOND_HOME': {
+            items: [],
+            table: 'a',
+            main: 'part1_bah'
+        },
+        'SECOND_FEE': {
+            items: [],
+            table: 'b',
+            main: 'part2_bah'
+        },
+        'SECOND_LIS': {
+            items: [],
+            table: 'c',
+
+            main: 'part3_OUTPATIENT_ID'
+        },
+        'SECOND_PATHOLOGY': {
+            items: [],
+            table: 'd',
+            main: 'part4_bah'
+        },
+    };
+    
+
+    filter_conditions.forEach(item => {
+        if(item.subdatabaseField!=null){
+            lis_array.push(generateLisCondition(item));
+        }else{
+            general_array.push(generateCondition(item));
+        }
+    });
+
+    general_array.forEach(item => {
+        condition_part[item.part].items.push(item.sql);
+        home_fields.push(item.databaseField);
+    });
+
+    lis_array.forEach(item => {
+        condition_part[item.part].items.push(item.sql);
+        home_fields.concat(item.databaseField);
+    });
+    
+    Object.keys(condition_part).forEach((key, index) => {
+        if(index === 0) {
+            table_list.push(`${key} ${condition_part[key].table}`);
+            mainFields.push(`${condition_part[key].table}.${condition_part[key].main}`);
+        }
+        if (condition_part[key].items.length > 0 && index > 0){
+            table_list.push(`${key} ${condition_part[key].table}`);
+            mainFields.push(`${condition_part[key].table}.${condition_part[key].main}`);
+        }
+        all_condition.push(...condition_part[key].items);
+    });
+
+    console.log("all_condition:", all_condition);
+    mainFields.forEach((item,index) => {
+        if(index < mainFields.length-1 && mainFields.length > 1){
+            mainFields_join.push(` (${mainFields[index]}=${mainFields[index+1]}) `);
+        }
+    });
+    let sql1;
+    let sql2;
+    let condition_map = `${join_array.concat(all_condition).join(' ')}`;
+    
+    if(mainFields.length===1 && mainFields.split('.')[1].split('_')[0]==='part1'){
+        sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map} limit ${start},${size};`;
+        console.log("查询语句1:", sql1);
+        sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map}) as temp ;`;
+    }else{
+        sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map} limit ${start},${size};`;
+        console.log("查询语句1:", sql1);
+        sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map}) as temp ;`;
+    }
+    
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    return await db.query(sql).then(res => {
+        const uniq_data = Utils.uniqArray(res, 'part1_pid');
+        uniq_data.forEach(item => {
+            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
+            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
+            item['part1_xb'] = gender_map[item['part1_xb']];
+        });
+        return { count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
+    }).catch(e => {
+        return e;
+    });
+}
+
+
+
+
+
+//给郑莹倩师姐：二附院自定义可视化筛选基础上返回特定字段
 router.post('/oa/patients2/filter2',async (ctx, next) =>{
    
     let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
@@ -342,7 +456,7 @@ router.post('/oa/patients2/filter2',async (ctx, next) =>{
 
     let sql1;
     let sql2;
-    let condition_map = `${join_array.concat(all_condition).join(' ')}`;
+    let condition_map = `${join_array.concat(all_condition).join('and')}`;
     // let unique_home_fields = flatten(home_fields);
     console.log("home_fields:", home_fields);
     console.log("table_list:", table_list);
@@ -428,6 +542,7 @@ router.post('/oa/patients2/filter2',async (ctx, next) =>{
     })
 });
 
+//生成不需要在LIS表中查找的数据
 function generateCondition(condition) {
     const list = table_map[condition['databaseField'].split('_')[0]];
     if (condition['isNumber'] === true ) {
@@ -483,6 +598,7 @@ function generateCondition(condition) {
     }
 }
 
+//生成需要在LIS表中查找的数据
 function generateLisCondition(condition) {
     const list = table_map[condition['databaseField'].split('_')[0]];
     if (condition['isNumber'] === true) {

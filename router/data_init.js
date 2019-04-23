@@ -779,6 +779,66 @@ router.get('/oa/init_exportRule', async(ctx,next) => {
     });
 });
 
+// 建表：二附院骨密度对应病人信息表，骨密度表，骨代谢表
+router.get('/oa/init_bone',async(ctx,next) => {
+    const homeKeys = sec_key.boneHome_key;
+    const boneDensityKeys = sec_key.boneDensity_key;
+    const vdKeys = sec_key.vd_key;
+    
+    const homeTypes = sec_type.boneHome_type;
+    const boneDensityTypes = sec_type.boneDensity_type;
+    const vdTypes = sec_type.vd_type;
+
+    const sql_home = [];
+    const sql_boneDensity = [];
+    const sql_vd = [];
+
+    homeKeys.forEach((item,index) => {
+        sql_home.push(`part5_${item} ${homeTypes[index]}`);
+    })
+
+    boneDensityKeys.forEach((item,index) => {
+        sql_boneDensity.push(`part6_${item} ${boneDensityTypes[index]}`);
+    })
+
+    vdKeys.forEach((item,index) => {
+        sql_vd.push(`part7_${item} ${vdTypes[index]}`);
+    })
+
+
+    sql_home.unshift('part5_pid INT unsigned not null auto_increment');
+    sql_home.push('PRIMARY KEY (part5_pid)');
+    sql_home.push('INDEX BAH (part5_bah)');
+
+    sql_boneDensity.unshift('part6_pid INT unsigned not null auto_increment');
+    sql_boneDensity.push('PRIMARY KEY (part6_pid)');
+    sql_boneDensity.push('INDEX BAH (part6_bah)');
+
+    sql_vd.unshift('part7_pid INT unsigned not null auto_increment');
+    sql_vd.push('PRIMARY KEY (part7_pid)');
+    sql_vd.push('INDEX BAH (part7_bah)');
+
+    const sql1 = `CREATE TABLE IF NOT EXISTS SECOND_BONEHOME (${sql_home.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    const sql2 = `CREATE TABLE IF NOT EXISTS SECOND_BONEDENSITY (${sql_boneDensity.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    const sql3 = `CREATE TABLE IF NOT EXISTS SECOND_VD (${sql_vd.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    
+    console.log(sql1);
+    console.log(sql2);
+    console.log(sql3);
+    const part1 = await db.query(sql1);
+    const part2 = await db.query(sql2);
+    const part3 = await db.query(sql3);
+    Promise.all([part1,part2,part3]).then(res => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表建表成功'
+        }
+    }).catch(e => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表建表失败'
+        }
+    })
+})
+
 generateType = (type) => {
     switch (type) {
         case '数字':

@@ -16,18 +16,18 @@ const type = {
 
     // 骨密度对应基本信息表
     boneHome_type : [
-        'INT','VARCHAR(30)','INT','DATE','INT','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
+        'INT','VARCHAR(30)','INT','VARCHAR(30)','INT','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
         'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)'
     ],
 
     // 骨密度
     boneDensity_type : [
-        'INT','VARCHAR(10)','DATE','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)'
+        'INT','VARCHAR(10)','VARCHAR(30)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)'
     ],
 
     // 骨代谢
     vd_type : [
-        'INT','VARCHAR(10)','DATE','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)'
+        'INT','VARCHAR(10)','VARCHAR(30)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)','DECIMAL(10,5)'
     ]
 };
 

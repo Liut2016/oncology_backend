@@ -985,6 +985,60 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
     ctx.body = {...Tips[0],data:result};
 })
 
+// 给李安：获取骨密度、骨代谢等数据
+router.post('/oa/patients2/getBone2',async(ctx,next) => {
+    let dims = ctx.request.body.dims;
+    let data = [];
+    let result = [];
+    let table = {
+        SECOND_BONEHOME:'part5_bah',
+        SECOND_BONEDENSITY:'part6_bah',
+        SECOND_VD:'part7_bah'
+    }
+    for(let i in dims){
+        dims[i].unshift(table[i]);
+        let sql = `SELECT ${dims[i].join(',')} FROM ${i};`;
+        await db.query(sql).then(res => {
+            for(let j = 0; j < res.length; j++)
+            {
+                for(let k in res[j]) res[j][k] = [res[j][k]];
+                if(j != 0 && res[j][table[i]][0] === res[j-1][table[i]][0])
+                {
+                    for(let k in res[j]) res[j-1][k] = res[j-1][k].concat(res[j][k]);
+                    res.splice(j--,1);
+                }
+            }
+
+            res = res.map(r => {
+                let bah = r[table[i]];
+                delete r[table[i]];
+                r['bah'] = bah;
+                return r;
+            })
+           
+            //console.log(res);
+            if(!result.length) result = res;
+            else{
+                res.forEach(r1 => {
+                    result.forEach(r2 => {
+                        if(r1['bah'][0] === r2['bah'][0])
+                        r2 = Object.assign(r2,r1);
+                    })
+                })
+            }
+           
+
+        }).catch(e => {
+            ctx.body = {...Tips[1],reason:e};
+        })
+    }
+    result.forEach(r => {
+        delete r['bah'];
+    })
+    console.log(result);
+    ctx.body = {...Tips[0],data:result};
+})
+
 // 给李安：获取病理数据
 router.post('/oa/patients2/getPathology',async(ctx,next) => {
     let dims = ctx.request.body.dims;

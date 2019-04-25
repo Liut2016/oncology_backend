@@ -17,7 +17,7 @@ const type = {
     // 骨密度对应基本信息表
     boneHome_type : [
         'INT','VARCHAR(30)','INT','VARCHAR(30)','INT','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
-        'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(10)'
+        'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)'
     ],
 
     // 骨密度

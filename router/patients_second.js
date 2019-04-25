@@ -130,13 +130,15 @@ router.post('/oa/patients2/filter',async (ctx, next) =>{
     const params = ctx.request.body;
     const start = params['pageindex'] - 1;
     const size = params['pagesize'];
-    const conditions = params.conditions;
+    const conditions = params['conditions'];
     /**
      * 如果参数中的条件为空数组，则直接查询数量和分页条目
      */
 
     console.log("条件：",conditions );
-
+    console.log("start:", start);
+    console.log("size:", size);
+    console.log("历史记录：" , params['history']);
     const history_object = {
         text: params['history'],
         set: {
@@ -165,7 +167,7 @@ async function insertHistory(history) {
     }).catch(e => {
         console.log(e);
     });
-    if (existed === 0) {
+    if (existed === 0 && history['text']!=null) {
         await db.query(`insert into SECOND_SEARCH_HISTORY(history_text, history_set) values ('${history.text}', '${JSON.stringify(history.set)}');`).then(res => {
             console.log('插入历史记录');
         }).catch(e => {
@@ -180,10 +182,11 @@ async function dataFilter(conditions, start, size) {
      */
     if (conditions.length === 0) {
        return getPagePatients(start, size);
+       console.log("传入不过滤函数");
     } else {
        return getFilterPatients(conditions, start, size);
+       console.log("过滤函数");
     }
-    console.log("数据传递成功");
 }
 
 /**
@@ -191,6 +194,7 @@ async function dataFilter(conditions, start, size) {
  */
 router.get('/oa/history', async (ctx, next) => {
     await db.query(`select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`).then(res => {
+        console.log("历史记录res", res);
         ctx.body = {...Tips[0], data: res}
     }).catch(e => {
         ctx.body = {...Tips[1002], e}
@@ -204,24 +208,34 @@ router.get('/oa/history', async (ctx, next) => {
  * @returns {Promise<{count_num: *, data: any} | never>}
  */
 async function getPagePatients(start, size) {
-    console.log('无过滤filter');
-    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
-    let sql1 = `SELECT ${home_fields} FROM SECOND_HOME LIMIT ${start}, ${size}`;
+    console.log('getPagePatients无过滤filter');
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd', 'a.part1_xb'];
+    let sql1 = `SELECT ${home_fields} FROM SECOND_HOME a LIMIT ${start}, ${size}`;
     let sql2 = `SELECT COUNT(*) FROM SECOND_HOME`;
+    console.log('getPagePatients无过滤sql', sql1);
     const get_patient = db.query(sql1);
     const get_count = db.query(sql2);
     return Promise.all([get_patient, get_count]).then(res => {
-        res[0].map(item => {
+        console.log('getPagePatients无过滤res', res);
+        res[0].forEach(item => {
             /**
              * 这里需要对时间格式进行一下裁剪
              * @type {boolean|*|*|string}
              */
-            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
-            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
-            item['part1_xb'] = gender_map[item['part1_xb']];
-            return item;
+            Object.keys(item).forEach(ele=>{
+                if(ele === 'part1_rysj' || ele === 'part1_cysj'){
+                    item[ele] = item[ele].substr(0, 16);
+                }
+                if(ele === 'part1_xb'){
+                    item[ele] = gender_map[item[ele]];
+                }
+                // return item;
+            })
         });
+
+        console.log('res[0]:', res);
         return {count_num:res[1][0]['COUNT(*)'] ,data:res[0]};
+       
     }).catch(e => {
         return e
     })
@@ -289,8 +303,10 @@ async function getFilterPatients(conditions, start, size) {
     });
 
     lis_array.forEach(item => {
+        console.log("LIS返回字段：", item.databaseField);
         condition_part[item.part].items.push(item.sql);
-        home_fields.concat(item.databaseField);
+        home_fields = home_fields.concat(item.databaseField);
+        home_fields.push('c.part3_QUANTITATIVE_RESULT');
     });
     
     Object.keys(condition_part).forEach((key, index) => {
@@ -305,36 +321,45 @@ async function getFilterPatients(conditions, start, size) {
         all_condition.push(...condition_part[key].items);
     });
 
-    console.log("all_condition:", all_condition);
+    console.log("过滤的函数all_condition:", all_condition);
     mainFields.forEach((item,index) => {
         if(index < mainFields.length-1 && mainFields.length > 1){
             mainFields_join.push(` (${mainFields[index]}=${mainFields[index+1]}) `);
         }
     });
+    console.log('home_fields',home_fields);
+    console.log('mainFields', mainFields);
     let sql1;
     let sql2;
-    let condition_map = `${join_array.concat(all_condition).join(' ')}`;
-    
-    if(mainFields.length===1 && mainFields.split('.')[1].split('_')[0]==='part1'){
-        sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map} limit ${start},${size};`;
-        console.log("查询语句1:", sql1);
-        sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map}) as temp ;`;
+    let condition_map = `${join_array.concat(all_condition).join('and')}`;
+    console.log('condition_map', condition_map);
+    console.log('table_list', table_list);
+ 
+     if((mainFields.length===1) && (mainFields[0].split('.')[1].split('_')[0]==='part1')){
+        sql = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${condition_map}; `;
+        console.log('sql:', sql);
+       
     }else{
-        sql1 = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map} limit ${start},${size};`;
-        console.log("查询语句1:", sql1);
-        sql2 = `SELECT count(1) as num from (select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map}) as temp ;`;
+        sql = `select ${unique(home_fields).join(',')} from ${table_list.join(',')} where ${mainFields_join.join('and')} and ${condition_map}; `;
+        console.log('sql:', sql);
     }
     
-    const part1 = await db.query(sql1);
-    const part2 = await db.query(sql2);
+
     return await db.query(sql).then(res => {
+        console.log('res', res);
         const uniq_data = Utils.uniqArray(res, 'part1_pid');
-        uniq_data.forEach(item => {
-            item['part1_rysj'] = item['part1_rysj'].substr(0, 16);
-            item['part1_cysj'] = item['part1_cysj'].substr(0, 16);
-            item['part1_xb'] = gender_map[item['part1_xb']];
-        });
-        return { count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
+        const num = uniq_data.length;
+        console.log('uniq_data', uniq_data);
+        Object.keys(uniq_data).forEach(ele=>{
+            if(ele === 'part1_rysj' || ele === 'part1_cysj'){
+                uniq_data[ele] = uniq_data[ele].substr(0, 16);
+            }
+            if(ele === 'part1_xb'){
+                uniq_data[ele] = gender_map[uniq_data[ele]];
+            }
+        })
+        console.log('res', res);
+        return {  count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
     }).catch(e => {
         return e;
     });
@@ -407,7 +432,8 @@ router.post('/oa/patients2/filter2',async (ctx, next) =>{
 
     lis_array.forEach(item => {
         condition_part[item.part].items.push(item.sql);
-        home_fields.concat(item.databaseField);
+        home_fields = home_fields.concat(item.databaseField);
+        home_fields.push('c.part3_QUANTITATIVE_RESULT');
     });
     
     searchField.forEach(item => {
@@ -603,7 +629,8 @@ function generateLisCondition(condition) {
     const list = table_map[condition['databaseField'].split('_')[0]];
     if (condition['isNumber'] === true) {
         const result = {
-            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            // databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
+            databaseField: [`${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                   and (${list}.part3_QUANTITATIVE_RESULT between ${condition['inputValue1']} and ${condition['inputValue2']}))`
@@ -612,7 +639,7 @@ function generateLisCondition(condition) {
     }
     if ((condition['isNotNumber']===true)&&(condition['isSelect']==true)) {
         const result = {
-            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            databaseField: [ `${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                   and (${list}.part3_QUANTITATIVE_RESULT  = '${condition['selectedValue']}'))`
@@ -623,7 +650,7 @@ function generateLisCondition(condition) {
     if ((condition['isNotNumber']===true)&&(condition['isSelect']===false)) {
         if (condition['selectedValue'] === '包含') {
             const result = {
-                databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+                databaseField: [`${list}.${condition['subdatabaseField']}`],
                 part: part_map[condition['databaseField'].split('_')[0]],
                 sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                     and (${list}.part3_QUANTITATIVE_RESULT like '%${condition['inputValue']}%'))`
@@ -632,7 +659,7 @@ function generateLisCondition(condition) {
         }
         if(condition['selectedValue'] === '等于') {
             const result = {
-                databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+                databaseField: [`${list}.${condition['subdatabaseField']}`],
                 part: part_map[condition['databaseField'].split('_')[0]],
                 sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}') and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                      and (${list}.part3_QUANTITATIVE_RESULT = '${condition['inputValue']}'))`
@@ -642,7 +669,7 @@ function generateLisCondition(condition) {
     }
     if (condition['isTime'] === true) {
         const result = {
-            databaseField: `${list}.${condition['databaseField']}, ${list}.${condition['subdatabaseField']}`,
+            databaseField: [`${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}' 
                   and (${list}.part3_QUANTITATIVE_RESULT between '${condition['startTime']}' and '${condition['endTime']}'))`

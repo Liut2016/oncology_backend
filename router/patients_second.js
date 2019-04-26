@@ -187,21 +187,7 @@ async function dataFilter(conditions, start, size) {
     }
 }
 
-// /**
-//  * 历史记录获取api
-//  */
-// router.get('/oa/history', async (ctx, next) => {
-//     const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`;
-//     return await db.query(sql).then(res => {
-//         console.log("历史记录res", res);
-//         ctx.body = {...Tips[0], data: res}
-//     }).catch(e => {
-//         ctx.body = {...Tips[1002], e}
-//     })
-//  });
- /**
- * 历史记录获取api
- */
+
 router.get('/oa/patients2/history', async (ctx, next) => {
     const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`;
     return await db.query(sql).then(res => {

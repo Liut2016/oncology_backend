@@ -5,11 +5,9 @@ const db = require('../db/index');
 const { Parser } = require('json2csv');
 const fs = require('fs');
 const _ = require('lodash');
-const compressing = require('compressing');
-const pump = require('pump');
-const path = require('path');
 const send = require('koa-send');
 const archiver = require('archiver');
+
 
 const basic_conditions = {
     patientID: 'part1_zylsh',
@@ -1140,13 +1138,8 @@ router.get('/oa/patients1/exportrule/getall',async(ctx,next) => {
     });
 });
 
- /**
- * GET：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
- * @param  {pid} 规则pid
- * @returns {.csv} 导出数据
- */
 
-
+/*
 router.get('/oa/patients1/exportdata/:pid',async(ctx,next) => {
     let params = ctx.params;
     let {pid} = params;
@@ -1274,10 +1267,7 @@ router.post('/oa/patients1/exportdata2/test',async(ctx,next) => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });
 });
-
-// lis/advice 如何拼接
-// 如果只查lis/advice呢
-// results好像也是单人多条信息？
+*/
 
 const exportKeyTable = {
     FIRST_HOME:{
@@ -1302,11 +1292,14 @@ const exportKeyTable = {
     }
 }
 
-function dataConcat(data,res)
-{
-    
-}
-router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
+
+ /**
+ * POST：根据导出数据规则表 FIRST_EXPORTRULE 中的规则导出数据
+ * @param  {ruleId,patients,isAll} 规则pid,病人病案流水号，是否为全部记录
+ * @returns {.csv} 导出数据
+ */
+
+router.post('/oa/patients1/exportdata',async(ctx,next) => {
     let ruleId = ctx.request.body.ruleId;
     let patients = ctx.request.body.patients;
     let isAll = ctx.request.body.isAll;
@@ -1480,40 +1473,20 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(data);
         
-
         /*
-        compressing.zip.compressFile(buffer,'data.zip').then(() =>{
-            //console.log('enter');
-            //ctx.set('Content-disposition','attachment;filename=data.csv');
-            //ctx.statusCode = 200;
-            //ctx.body = 'data.zip';
-            console.log('success');
-        }).catch(e => {
-            ctx.body = {...Tips[1],status:"压缩失败",reason:e};
-        });*/
-
-        
-        console.log('a');
-        await fs.writeFile('data.csv',csv,async function(err){
+        let part1 = await fs.writeFile('data.csv',csv,async function(err){
             if(err) console.log(err);
-            //compressing.zip.compressFile('data.csv','data.zip')
-            //.then(compressDone)
-            //.catch(handleError);
+        })
+        let part2 = await Utils.compressFile('data.csv','data.zip','data.csv');
+        
+        Promise.all([part1,part2]).then(function (){
+            let zippath = 'data.zip';
+                ctx.body = fs.createReadStream(zippath);
+                ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+                //ctx.set('Content-type',mime);
+                ctx.statusCode = 200;
+        })*/
 
-            /*
-            let compress = new Promise(function(resolve,reject){
-                Utils.compressFile('data.csv','data.zip','data.csv');
-                resolve();
-            });
-            compress.then(function(){
-                let p = `data.zip`;
-                console.log(p);
-                ctx.attachment(p);
-                send(ctx,p);
-                console.log('success');
-            });
-            */
-            
         let output = fs.createWriteStream('data.zip');
         let archive = archiver('zip',{zlib:{level:9}});
 
@@ -1526,62 +1499,29 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         });
         archive.on('warning', function(err) {
             if (err.code === 'ENOENT') {
-              console.log('warning');
+            console.log('warning');
             } else {
-              // throw error
-              throw err;
+            throw err;
             }
         });
         archive.on('error', function(err) {
             throw err;
         });
-        
+            
         archive.pipe(output);
-        let file = 'data.csv';
-        archive.append(fs.createReadStream(file),{name:'data.csv'});
+        archive.append(csv,{name:'data.csv'});
         //archive.append('data.csv',{name:'data.csv'});
         //archive.directory('test/',false);
-        await archive.finalize();
-        
-        let p = `data.zip`;
-        console.log(p);
-        ctx.attachment(p);
-        await send(ctx,p);
-        console.log('success');
-            
+        await archive.finalize(); 
 
-            
-            
-        });
-        
-        console.log('b');
-        //await compressing.zip.compressFile('data.csv','data.zip')
-        //.then(compressDone)
-        //.catch(handleError);
-
-        /*
-        pump(source,new compressing.gzip.FileStream(),target,err => {
-            if(err) console.log(err);
-            else{
-                console.log('success');
-            }
-        });
-        */
-
-        /*
-        let file = path.resolve('./');
-        file += '/data.csv';
-        console.log(file);
-        ctx.set('Content-disposition','attachment;filename=data.csv');
+        let zippath = 'data.zip';
+        ctx.body = fs.createReadStream(zippath);
+        ctx.set('Content-disposition',`attachment;filename=${zippath}`);
+        //ctx.set('Content-type',mime);
         ctx.statusCode = 200;
-        //ctx.body = pump(source,new compressing.gzip.FileStream());
-        
-        let filestream = fs.createReadStream(file);
-        //filestream.pipe(ctx);
-        ctx.attachment('data.csv');
-        await send(ctx,'data.csv');
-        console.log('c');
-        */
+
+      
+
         /*
         const list = [{name:'data.csv'}];
         const zipName = 'data.zip';
@@ -1597,89 +1537,10 @@ router.post('/oa/patients1/exportdata2/test2',async(ctx,next) => {
         await send(ctx,zipName);
         console.log('success');
         */
-        
-        // let output = fs.createWriteStream('data.zip');
-        // let archive = archiver('zip',{zlib:{level:9}});
-
-        // output.on('close', function() {
-        //     console.log(archive.pointer() + ' total bytes');
-        //     console.log('archiver has been finalized and the output file descriptor has closed.');
-        // });
-        // output.on('end', function() {
-        //     console.log('Data has been drained');
-        // });
-        // archive.on('warning', function(err) {
-        //     if (err.code === 'ENOENT') {
-        //       console.log('warning');
-        //     } else {
-        //       // throw error
-        //       throw err;
-        //     }
-        // });
-        // archive.on('error', function(err) {
-        //     throw err;
-        // });
-        
-        // archive.pipe(output);
-        // let file = 'data.csv';
-        // archive.append(fs.createReadStream(file),{name:'data.csv'});
-        // //archive.append('data.csv',{name:'data.csv'});
-        // //archive.directory('test/',false);
-        // archive.finalize();
-
-        
-
-        //let p = path.resolve('./');
-        //p += '/data.zip';
-        // let p = `data.zip`;
-        // console.log(p);
-        // ctx.attachment(p);
-        // await send(ctx,p);
-        // console.log('success');
-        //ctx.body = {...Tips[0],status:'success'};
-        
-        //let read = fs.createReadStream('data.zip');
-       
-        //ctx.set('Content-disposition','attachment;filename=data.zip');
-        //let p = `${process.cwd()}/data.zip`;
-        //console.log(p);
-        //const stream = fs.createReadStream(p);
-        //ctx.ok(stream);
-        //ctx.body = fs.createReadStream('./data.zip');
-        //console.log('success');
-
-
-        /*
-        const json2csvParser = new Parser({ fields });
-        const csv = json2csvParser.parse(data);
-        ctx.set('Content-disposition','attachment;filename=data.csv');
-        ctx.statusCode = 200;
-        ctx.body = csv;
-        //console.log('enter1');
-        //ctx.body = {...Tips[0],status:"查找成功",data:data};
-        //console.log('enter2');
-        */
 
     }).catch(e => {
         ctx.body = {...Tips[1],status:"规则查找失败",reason:e};
     });
 });
 
-router.post('/test',async (ctx,next) => {
-    console.log('a');
-    
-    const path = __dirname + '/user.js';
-    console.log(path);
-    ctx.attachment(path);
-    await send(ctx,path);
-    
-    /*
-    let path = 'tumour death.xlsx';
-    console.log(path);
-    ctx.set('Content-disposition',`attachment;filename=${path}`);
-    ctx.statusCode = 200;
-    ctx.body = fs.createReadStream(path);
-    console.log('hhh');
-    */
-});
 module.exports = router;

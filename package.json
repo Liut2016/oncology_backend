@@ -42,8 +42,6 @@
     "mysql": "^2.15.0",
     "mysqls": "0.0.5",
     "json2csv": "4.3.5",
-    "compressing": "1.4.0",
-    "pump": "3.0.0",
     "archiver": "3.0.0"
   }
 }

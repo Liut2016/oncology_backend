@@ -641,7 +641,7 @@ function dataSolve(data)
     }
 
     // xlsx插件把最后一个非空值作为最后一项，因此需要把每一条记录补全
-    while(data.length < 26) data.push(null);
+    while(data.length < 27) data.push(null);
 
     // 将病案号处理为数值型
     //if(data[1] != 'null') data[1] = parseInt(data[1]);
@@ -679,7 +679,7 @@ function dataMerge(data)
 // 插入数据：二附院病理表
 router.get('/oa/load_pathology_2',async(ctx,next) => {
     const keys = sec_key.pathology_key;
-    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/病理v1.xlsx'));
+    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/病理v2.xlsx'));
     const data = xlsx.parse(file)[0].data.slice(1);
     const sqlKey = [];
     let sqlData = [];
@@ -778,6 +778,162 @@ router.get('/oa/init_exportRule', async(ctx,next) => {
         ctx.body = {status:"一附院数据导出规则表FIRST_EXPORTRULE建表失败"};
     });
 });
+
+// 建表：二附院骨密度对应病人信息表，骨密度表，骨代谢表
+router.get('/oa/init_bone',async(ctx,next) => {
+    let i;
+    let sql_array = [];
+    let query_array = [];
+    const table = [
+        {
+            name:'SECOND_BONEHOME',
+            key:sec_key.boneHome_key,
+            type:sec_type.boneHome_type,
+            rule:[]
+        },
+        {
+            name:'SECOND_BONEDENSITY',
+            key:sec_key.boneDensity_key,
+            type:sec_type.boneDensity_type,
+            rule:[]
+        },
+        {
+            name:'SECOND_VD',
+            key:sec_key.vd_key,
+            type:sec_type.vd_type,
+            rule:[]
+        }
+    ];
+
+    for(i = 0;i < 3; i++)
+    {
+        let num = i + 5;
+        table[i].key.forEach((item,index) => {
+            table[i].rule.push(`part${num}_${item} ${table[i].type[index]}`);
+        })
+
+        table[i].rule.unshift(`part${num}_pid INT unsigned not null auto_increment`);
+        table[i].rule.push(`PRIMARY KEY (part${num}_pid)`);
+        table[i].rule.push(`INDEX BAH (part${num}_bah)`);
+
+        sql_array.push(`CREATE TABLE IF NOT EXISTS ${table[i].name} (${table[i].rule.join(',')}) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`);
+        query_array.push(await db.query(sql_array[i]));
+    }
+    Promise.all(query_array).then(res => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表建表成功'
+        }
+    }).catch(e => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表建表失败'
+        }
+    })
+})
+
+// 导入数据：二附院骨密度对应病人信息表，骨密度表，骨代谢表
+
+// 注意：使用wps创建的excel文件在用node-xlsx读取时会报 CLSID: Expected 00000000000000000000000000000000 saw 2008020000000000c000000000000046
+//      的错误，解决方案是使用Microsoft Office Excel 将文件另存为，然后再进行读取
+router.get('/oa/load_bone',async(ctx,next) => {
+    let sql_array = [];
+    let query_array = [];
+    let table = [
+        {
+            name:'SECOND_BONEHOME',
+            key:sec_key.boneHome_key,
+            data:[]
+        },
+        {
+            name:'SECOND_BONEDENSITY',
+            key:sec_key.boneDensity_key,
+            data:[]
+        },
+        {
+            name:'SECOND_VD',
+            key:sec_key.vd_key,
+            data:[]
+        }
+    ];
+    const file = fs.readFileSync(path.join(__dirname,'../data/second_data/boneDensity_vd.xlsx'));
+    const data = xlsx.parse(file)[0].data.slice(2);
+    console.log(data);
+
+    // 生成字段名
+    for(i=0;i<3;i++){
+        let num = i + 5;
+        table[i].key = table[i].key.map(item => {return `part${num}_${item}`;});
+    }
+
+    data.forEach((item) => {
+        let bah = item[0];
+        let i;
+        
+        // 处理首页信息
+        let home = item.slice(0,20);
+        home.forEach(r => {
+            if(typeof(r) === 'undefined') r = null;
+        })
+        if(!home[2]) home[2] = 0;
+        table[0].data.push(home);
+
+        // 处理骨密度信息
+        let temp1 = item.slice(20);
+        i = 0;
+        while(i < (temp1.length <= 56 ? temp1.length : 56))
+        {
+            if(temp1[i] || temp1[i+1])
+            {
+                //console.log(temp1[i]);
+                let bone = temp1.slice(i,i+7);
+                bone.unshift(bah);
+                while(bone.length < 8) bone.push(null);
+                table[1].data.push(bone);
+                //console.log(bone)
+                
+            }
+            i += 7;
+        }
+        
+        // 处理骨代谢信息
+        let temp2 = item.slice(76);
+        i = 0;
+        while(i < temp2.length)
+        {
+            if(temp2[i] || temp2[i+1])
+            {
+                let vd = temp2.slice(i,i+8);
+                vd.unshift(bah);
+                let date = vd[2];
+                vd[2] = date.slice(0,4) + '-' + date.slice(4,6) + '-' + date.slice(6,8);
+                while(vd.length < 9) vd.push(null);
+                table[2].data.push(vd);
+                //console.log(vd);
+            }
+            i += 8;
+        }
+    });
+    
+    for(i=0;i<3;i++){
+        sql_array.push(`INSERT INTO ${table[i].name} (${table[i].key.join(',')}) VALUES ?;`);
+        query_array.push(await db.query(sql_array[i],[table[i].data]));
+    }
+    
+    Promise.all(query_array).then(res => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表数据导入成功',
+            boneHome:table[0].data,
+            boneDensity:table[1].data,
+            vd:table[2].data
+        }
+    }).catch(e => {
+        ctx.body = {
+            status:'二附院骨密度信息表、骨密度表、骨代谢表建表失败'
+        }
+    })
+    
+
+    //ctx.body = {home:table[0].data,density:table[1].data,vd:table[2].data}
+})
 
 generateType = (type) => {
     switch (type) {

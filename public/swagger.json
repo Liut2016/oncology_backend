@@ -12,7 +12,7 @@
       "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
     }
   },
-  "host": "petstore.swagger.io",
+  "host": "localhost:8080",
   "basePath": "/",
   "tags": [{
     "name": "pet",
@@ -31,8 +31,14 @@
       "description": "Find out more about our store",
       "url": "http://swagger.io"
     }
+  },{
+    "name": "patients1",
+    "description": "一附院API"
+  },{
+    "name": "patients2",
+    "description":"二附院API"
   }],
-  "schemes": ["https", "http"],
+  "schemes": ["http"],
   "paths": {
     "/pet": {
       "post": {
@@ -635,6 +641,108 @@
           },
           "404": {
             "description": "User not found"
+          }
+        }
+      }
+    },
+    "/oa/index":{
+      "get":{
+        "tags":["patients1"],
+        "summary":"提供一附院二附院数据库所有表的字段集合",
+        "description":"",
+        "operationId":"index",
+        "consumes":["application/json","application/xml"],
+        "produces":["application/xml","application/json"],
+        "parameters":[{
+          "name": "无",
+          "in": "query",
+          "description": "不需要额外参数",
+          "required": false,
+          "collectionFormat": "multi"
+        }],
+        "responses":{
+          "200":{
+            "description":"返回所有表的字段名\n格式：\nindex:{\nFIRST_HOME:[part1_pid,part1_zylsh...],\nFIRST_ADVICE:[part2_pid,part2_zyh...]}"
+          }
+        }
+      }
+    },
+    "/oa/exportIndex":{
+      "get":{
+        "tags":["patients1"],
+        "summary":"将数据库中所有表的字段名生成cdv文件并提供下载",
+        "description":"",
+        "operationId":"exportIndex",
+        "consumes":["application/json","application/xml"],
+        "produces":["content-disposition","application/json"],
+        "parameters":[{
+          "name": "无",
+          "in": "query",
+          "description": "不需要额外参数",
+          "required": false
+        }],
+        "responses":{
+          "200":{
+            "description":"返回csv文件，包括所有表的字段名\n格式：\nTABLE_NAME,COLUMN_NAME\nFIRST_ADVICE,part2_pid\nFIRST_ADVICE,part2_zyh"
+          }
+        }
+      }
+    },
+    "/oa/patients1":{
+      "post":{
+        "tags":["patients1"],
+        "summary":"获取一附院所有病人病案首页信息，并进行分页",
+        "description":"",
+        "operationId":"",
+        "consumes":["application/json","application/xml"],
+        "produces":["application/json","application/xml"],
+        "parameters":[{
+          "in":"body",
+          "name":"pagesize",
+          "description":"int,每一页记录条数",
+          "required":true,
+          "schema":{
+            "type": "object",
+            "required": ["pagesize", "pageindex","conditions"],
+            "properties": {
+              "pagesize":{
+                "type":"integer",
+                "description":"每一页记录条数",
+                "example": 10
+              },
+              "pageindex":{
+                "type":"integer",
+                "description":"每一页第一条记录的序号",
+                "example": 0
+              },
+              "conditions":{
+                "type":"array",
+                "description":"待补充",
+                "example":[{
+                    "databaseField":"part1_xm",
+                    "databaseFieldKey":null,
+                    "endTime":null,
+                    "inputValue":"刘",
+                    "inputValue1":null,
+                    "inputValue2":null,
+                    "isNotNumber":true,
+                    "isNumber":false,
+                    "isSelect":false,
+                    "isTime":false,
+                    "logicValue":null,
+                    "selectedInt":null,
+                    "selectedValue":"包含",
+                    "startTime":null,
+                    "subdatabaseField":null,
+                    "subdatabaseFieldKey":null
+                  }]
+              }
+            }
+          }
+        }],
+        "responses": {
+          "200": {
+            "description": "返回经过筛选、分页后的病案首页信息"
           }
         }
       }

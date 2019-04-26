@@ -302,7 +302,6 @@ async function getFilterPatients(conditions, start, size) {
         condition_part[item.part].items.push(item.sql);
         home_fields = home_fields.concat(item.databaseField);
         home_fields.push('c.part3_QUANTITATIVE_RESULT');
-        home_fields.push('c.part3_TEST_ORDER_NAME');
     });
     
     Object.keys(condition_part).forEach((key, index) => {

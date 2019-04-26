@@ -182,24 +182,36 @@ async function dataFilter(conditions, start, size) {
      */
     if (conditions.length === 0) {
        return getPagePatients(start, size);
-       console.log("传入不过滤函数");
     } else {
        return getFilterPatients(conditions, start, size);
-       console.log("过滤函数");
     }
 }
 
-/**
+// /**
+//  * 历史记录获取api
+//  */
+// router.get('/oa/history', async (ctx, next) => {
+//     const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`;
+//     return await db.query(sql).then(res => {
+//         console.log("历史记录res", res);
+//         ctx.body = {...Tips[0], data: res}
+//     }).catch(e => {
+//         ctx.body = {...Tips[1002], e}
+//     })
+//  });
+ /**
  * 历史记录获取api
  */
-router.get('/oa/history', async (ctx, next) => {
-    await db.query(`select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`).then(res => {
+router.get('/oa/patients2/history', async (ctx, next) => {
+    const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`;
+    return await db.query(sql).then(res => {
         console.log("历史记录res", res);
         ctx.body = {...Tips[0], data: res}
     }).catch(e => {
         ctx.body = {...Tips[1002], e}
     })
  });
+
 
 /**
  * 没有任何过滤的情况下，获取病人数据。
@@ -252,10 +264,7 @@ async function getPagePatients(start, size) {
  */
 async function getFilterPatients(conditions, start, size) {
    
-    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd'];
-    // const pagesize = parseInt(ctx.request.body.pagesize);
-    // const pageindex = parseInt(ctx.request.body.pageindex);
-    // const start = pageindex -1;
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd']
     const filter_conditions = conditions;
     const lis_array = [];
     const general_array = [];
@@ -307,6 +316,7 @@ async function getFilterPatients(conditions, start, size) {
         condition_part[item.part].items.push(item.sql);
         home_fields = home_fields.concat(item.databaseField);
         home_fields.push('c.part3_QUANTITATIVE_RESULT');
+        home_fields.push('c.part3_TEST_ORDER_NAME');
     });
     
     Object.keys(condition_part).forEach((key, index) => {
@@ -329,8 +339,6 @@ async function getFilterPatients(conditions, start, size) {
     });
     console.log('home_fields',home_fields);
     console.log('mainFields', mainFields);
-    let sql1;
-    let sql2;
     let condition_map = `${join_array.concat(all_condition).join('and')}`;
     console.log('condition_map', condition_map);
     console.log('table_list', table_list);
@@ -346,7 +354,6 @@ async function getFilterPatients(conditions, start, size) {
     
 
     return await db.query(sql).then(res => {
-        console.log('res', res);
         const uniq_data = Utils.uniqArray(res, 'part1_pid');
         const num = uniq_data.length;
         console.log('uniq_data', uniq_data);
@@ -358,7 +365,7 @@ async function getFilterPatients(conditions, start, size) {
                 uniq_data[ele] = gender_map[uniq_data[ele]];
             }
         })
-        console.log('res', res);
+        console.log('res', uniq_data.slice(start, start + size));
         return {  count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
     }).catch(e => {
         return e;
@@ -618,7 +625,7 @@ function generateCondition(condition) {
         const result = {
             databaseField: `${list}.${condition['databaseField']}`,
             part: part_map[condition['databaseField'].split('_')[0]],
-            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } '(${list}.${condition['databaseField']} between ${condition['startTime']}' and '${condition['endTime']}')`
+            sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']} between '${condition['startTime']}' and '${condition['endTime']}')`
         };
         return result;
     }
@@ -629,8 +636,8 @@ function generateLisCondition(condition) {
     const list = table_map[condition['databaseField'].split('_')[0]];
     if (condition['isNumber'] === true) {
         const result = {
-            // databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
-            databaseField: [`${list}.${condition['subdatabaseField']}`],
+            databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
+            //databaseField: [`${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                   and (${list}.part3_QUANTITATIVE_RESULT between ${condition['inputValue1']} and ${condition['inputValue2']}))`
@@ -639,7 +646,7 @@ function generateLisCondition(condition) {
     }
     if ((condition['isNotNumber']===true)&&(condition['isSelect']==true)) {
         const result = {
-            databaseField: [ `${list}.${condition['subdatabaseField']}`],
+            databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                   and (${list}.part3_QUANTITATIVE_RESULT  = '${condition['selectedValue']}'))`
@@ -650,7 +657,7 @@ function generateLisCondition(condition) {
     if ((condition['isNotNumber']===true)&&(condition['isSelect']===false)) {
         if (condition['selectedValue'] === '包含') {
             const result = {
-                databaseField: [`${list}.${condition['subdatabaseField']}`],
+                databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
                 part: part_map[condition['databaseField'].split('_')[0]],
                 sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                     and (${list}.part3_QUANTITATIVE_RESULT like '%${condition['inputValue']}%'))`
@@ -659,7 +666,7 @@ function generateLisCondition(condition) {
         }
         if(condition['selectedValue'] === '等于') {
             const result = {
-                databaseField: [`${list}.${condition['subdatabaseField']}`],
+                databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
                 part: part_map[condition['databaseField'].split('_')[0]],
                 sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}') and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}'
                      and (${list}.part3_QUANTITATIVE_RESULT = '${condition['inputValue']}'))`
@@ -669,7 +676,7 @@ function generateLisCondition(condition) {
     }
     if (condition['isTime'] === true) {
         const result = {
-            databaseField: [`${list}.${condition['subdatabaseField']}`],
+            databaseField: [`${list}.${condition['databaseField']}`, `${list}.${condition['subdatabaseField']}`],
             part: part_map[condition['databaseField'].split('_')[0]],
             sql: `${condition['logicValue']!=null ? condition['logicValue'] : '' } (${list}.${condition['databaseField']}='${condition['databaseFieldKey']}' and ${list}.${condition['subdatabaseField']}='${condition['subdatabaseFieldKey']}' 
                   and (${list}.part3_QUANTITATIVE_RESULT between '${condition['startTime']}' and '${condition['endTime']}'))`

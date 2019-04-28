@@ -207,7 +207,7 @@ router.get('/oa/patients2/history', async (ctx, next) => {
  */
 async function getPagePatients(start, size) {
     console.log('getPagePatients无过滤filter');
-    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd', 'a.part1_xb'];
+    let home_fields = ['a.part1_pid', 'a.part1_xm', 'a.part1_xb','a.part1_bah', 'a.part1_rysj', 'a.part1_ryzd', ];
     let sql1 = `SELECT ${home_fields} FROM SECOND_HOME a LIMIT ${start}, ${size}`;
     let sql2 = `SELECT COUNT(*) FROM SECOND_HOME`;
     console.log('getPagePatients无过滤sql', sql1);
@@ -342,14 +342,17 @@ async function getFilterPatients(conditions, start, size) {
         const uniq_data = Utils.uniqArray(res, 'part1_pid');
         const num = uniq_data.length;
         console.log('uniq_data', uniq_data);
-        Object.keys(uniq_data).forEach(ele=>{
+        uniq_data.forEach( item=> {
+          Object.keys(item).forEach(ele=>{
             if(ele === 'part1_rysj' || ele === 'part1_cysj'){
-                uniq_data[ele] = uniq_data[ele].substr(0, 16);
+                item[ele] = item[ele].substr(0, 16);
             }
             if(ele === 'part1_xb'){
-                uniq_data[ele] = gender_map[uniq_data[ele]];
+                item[ele] = gender_map[ item[ele]];
             }
+           })
         })
+        
         console.log('res', uniq_data.slice(start, start + size));
         return {  count_num: uniq_data.length, data: uniq_data.slice(start, start + size)};
     }).catch(e => {

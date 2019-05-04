@@ -16,6 +16,8 @@ const path = require('path');
 const cors = require('@koa/cors');
 const koaSwagger = require('koa2-swagger-ui');
 const static = require('koa-static');
+const ipFilter = require('koa-ip-filter');
+const ip = require('koa-ip');
 
 
 app.use(cors());
@@ -27,6 +29,15 @@ app.use(koaSwagger({
         url: 'http://localhost:8080/swagger.json',
     },
 }),);
+
+app.use(ipFilter({
+    forbidden:'403:此IP访问受限',
+    filter:['202.117.54.92']
+}))
+
+
+//app.use(ip('117.32.155.48'));
+
 
 app.use(async(ctx, next) => {
     let {url = ''} = ctx;
@@ -60,7 +71,7 @@ app.use(compress({
     threshold: 2048
 }));
 router(app);
-http.createServer(app.callback()).listen(PORT);
+http.createServer(app.callback()).listen(PORT,'0.0.0.0');
 
 
 log('server is running on port: %s', PORT);

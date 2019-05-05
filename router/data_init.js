@@ -349,7 +349,7 @@ router.get('/oa/init_weight' ,async (ctx, next) => {
 });
 
 /**
- * 初始化历史记录表
+ * 初始化一附院历史记录表
  */
 router.get('/oa/init_history', async (ctx, next) => {
     const sql = `create table if not exists FIRST_SEARCH_HISTORY (history_pid INT unsigned not null auto_increment, history_text text, history_set JSON, primary key (history_pid)) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
@@ -360,18 +360,19 @@ router.get('/oa/init_history', async (ctx, next) => {
     })
  });
 
+ 
+
  /**
- * 初始化历史记录表
+ * 初始化二附院历史记录表
  */
 router.get('/oa/second_init_history', async (ctx, next) => {
-    const sql = `create table if not exists SECOND_SEARCH_HISTORY (history_pid INT unsigned not null auto_increment, history_text text, history_set JSON, primary key (history_pid)) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
+    const sql = `create table if not exists SECOND_SEARCH_HISTORY (history_pid INT unsigned not null auto_increment, history_text text,history_time VARCHAR(50) , history_set JSON, primary key (history_pid)) ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;`;
     await db.query(sql).then(res => {
         ctx.body = {status: res, text: '创建成功'}
     }).catch(e => {
         ctx.body = {status: e, text: '创建失败'}
     })
  });
-
 /*router.get('/oa/check_patient', async (ctx, next) => {
     const name = await db.query('select part1_xm from FIRST_HOME');
     const name_array = name.map(name => {

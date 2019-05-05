@@ -121,60 +121,78 @@ function flatten(arr) {
 }
 
 
+
+//查找历史记录
+router.post('/oa/patients2/history', async (ctx, next) => {
+    console.log(1);
+    let start = ctx.request.body['pageindex']-1;
+    let size = ctx.request.body['pagesize'];
+    const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc ;`;
+    console.log('历史记录sql',sql);
+    return await db.query(sql).then(res => {
+        ctx.body = {...Tips[0], data: res.slice(start, start + size),  count_num: res.length, }
+    }).catch(e => {
+        ctx.body = {...Tips[1002], e}
+    })
+ });
+ 
 //post方法全点位过滤
 router.post('/oa/patients2/filter',async (ctx, next) =>{
-     /**
-     * 这里规定了所有病案首页包含的字段
-     * @type {string[]}
-     */
-    const params = ctx.request.body;
-    const start = params['pageindex'] - 1;
-    const size = params['pagesize'];
-    const conditions = params['conditions'];
     /**
-     * 如果参数中的条件为空数组，则直接查询数量和分页条目
-     */
-
-    console.log("条件：",conditions );
-    console.log("start:", start);
-    console.log("size:", size);
-    console.log("历史记录：" , params['history']);
-    const history_object = {
-        text: params['history'],
-        set: {
+    * 这里规定了所有病案首页包含的字段
+    * @type {string[]}
+    */
+   
+   const params = ctx.request.body;
+   console.log('历史记录params:', params);
+   const start = params['pageindex'] - 1;
+   const size = params['pagesize'];
+   const conditions = params['conditions'];
+   /**
+    * 如果参数中的条件为空数组，则直接查询数量和分页条目
+    */
+  
+   const history_object = {
+       text: params['history'].history_text,
+       time: params['history'].history_time,
+       set: {
             conditions: conditions
-        }
-    };
-    /**
-     * 查询是否需要插入历史记录
-     */
+       }
+   };
+   /**
+    * 查询是否需要插入历史记录
+    */
 
-    insertHistory(history_object).then(res => {
-        console.log('history operation');
-    });
-    await dataFilter(conditions, start, size).then(res => {
-       ctx.body = {...Tips[0], count_num:res.count_num, data:res.data};
-    }).catch(e => {
-        ctx.body = {...Tips[1002], reason: e}
-    });
-    
+   insertHistory(history_object).then(res => {
+       console.log('history operation');
+   });
+   await dataFilter(conditions, start, size).then(res => {
+      ctx.body = {...Tips[0], count_num:res.count_num, data:res.data};
+   }).catch(e => {
+       ctx.body = {...Tips[1002], reason: e}
+   });
+   
 });
 
+
+
 async function insertHistory(history) {
-    let existed = 0;
-    await db.query(`select * from SECOND_SEARCH_HISTORY where JSON_CONTAINS(history_set , '${JSON.stringify(history.set)}');`).then(res => {
-        existed = res.length;
-    }).catch(e => {
-        console.log(e);
-    });
-    if (existed === 0 && history['text']!=null) {
-        await db.query(`insert into SECOND_SEARCH_HISTORY(history_text, history_set) values ('${history.text}', '${JSON.stringify(history.set)}');`).then(res => {
-            console.log('插入历史记录');
-        }).catch(e => {
-            console.log('插入失败');
-        })
-    }
+   let existed = 0;
+   await db.query(`select * from SECOND_SEARCH_HISTORY where JSON_CONTAINS(history_set , '${JSON.stringify(history.set)}');`).then(res => {
+       existed = res.length;
+   }).catch(e => {
+       console.log(e);
+   });
+   if (existed === 0 && history['text']!=null) {
+       await db.query(`insert into SECOND_SEARCH_HISTORY(history_text,history_time, history_set) values ('${history.text}','${history.time}', '${JSON.stringify(history.set)}');`).then(res => {
+           console.log('插入历史记录');
+       }).catch(e => {
+           console.log('插入失败');
+       })
+   }
 }
+
+
 
 async function dataFilter(conditions, start, size) {
     /**
@@ -187,16 +205,6 @@ async function dataFilter(conditions, start, size) {
     }
 }
 
-
-router.get('/oa/patients2/history', async (ctx, next) => {
-    const sql = `select * from SECOND_SEARCH_HISTORY order by history_pid desc LIMIT 25;`;
-    return await db.query(sql).then(res => {
-        console.log("历史记录res", res);
-        ctx.body = {...Tips[0], data: res}
-    }).catch(e => {
-        ctx.body = {...Tips[1002], e}
-    })
- });
 
 
 /**

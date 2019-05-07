@@ -32,7 +32,7 @@ app.use(koaSwagger({
 
 app.use(ipFilter({
     forbidden:'403:此IP访问受限',
-    filter:['202.117.54.92']
+    filter:['*.*.*.*']
 }))
 
 

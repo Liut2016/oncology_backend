@@ -9,6 +9,7 @@ const iconv = require('iconv-lite');
 const Type = require('../db/first_affiliated');
 const second_Type = require('../db/second_affiliated');
 const Utils = require('../utils/methods');
+const md5 = require('md5');
 
 const type = Type.type;
 const sec_type = second_Type.type;
@@ -946,6 +947,43 @@ router.get('/oa/load_bone',async(ctx,next) => {
     
 
     //ctx.body = {home:table[0].data,density:table[1].data,vd:table[2].data}
+})
+
+
+// 创建USER表并初始化新用户
+// admin 12345 Chen Sirui 610870693@qq.com stomach_vll <createDate> admin
+router.get('/oa/init_user',async (ctx,next) => {
+    const sql1 = 'CREATE TABLE IF NOT EXISTS USER (' +
+                 'uid INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,' +
+                 `name VARCHAR(20) DEFAULT NULL COMMENT '姓名',` +
+                 `password VARCHAR(50) NOT NULL COMMENT '密码',` +
+                 'first_name VARCHAR(30),' +
+                 'last_name VARCHAR(30),' +
+                 'email VARCHAR(30),' +
+                 `create_time DATETIME NOT NULL COMMENT '注册时间',` +
+                 'groups VARCHAR(240),' +
+                 'role VARCHAR(30),' +
+                 'PRIMARY KEY (uid),' +
+                 'UNIQUE KEY (name))' +
+                 'ENGINE=InnoDB AUTO_INCREMENT=1 CHARSET=utf8;';
+    
+    const sql2 = 'INSERT ' +
+                 'INTO USER (name,password,first_name,last_name,email,groups,create_time,role) ' +
+                 'VALUES (?,?,?,?,?,?,?,?);';
+
+    let createDate = new Date();
+    let user = ['admin',md5('12345'),'Sirui','Chen','610870693@qq.com','partents1,partents2',createDate,'admin'];
+    
+    await db.query(sql1).then(async res1 => {
+        await db.query(sql2,user).then(res2 => {
+            ctx.body = {status : "用户表USER初始化成功",user : user};
+        }).catch(e => {
+            ctx.body = {status : "用户表USER初始化失败",error : e};
+        })
+    }).catch(e => {
+        console.log(e);
+        ctx.body = {status : "用户表USER建表失败"};
+    })
 })
 
 generateType = (type) => {

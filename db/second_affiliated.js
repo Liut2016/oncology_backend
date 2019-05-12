@@ -16,8 +16,11 @@ const type = {
 
     // 骨密度对应基本信息表
     boneHome_type : [
-        'INT','VARCHAR(30)','INT','VARCHAR(30)','INT','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
-        'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)'
+        //'INT','VARCHAR(30)','INT','VARCHAR(30)','INT','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)',
+        //'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','VARCHAR(10)','VARCHAR(10)','VARCHAR(30)'
+        'INT','VARCHAR(30)','VARCHAR(10)','VARCHAR(30)','INT','VARCHAR(10)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','VARCHAR(60)',
+        'VARCHAR(30)','VARCHAR(30)','VARCHAR(60)','VARCHAR(30)','VARCHAR(30)','VARCHAR(60)','VARCHAR(30)','VARCHAR(30)','VARCHAR(60)','VARCHAR(30)','VARCHAR(30)',
+        'VARCHAR(30)','VARCHAR(30)','VARCHAR(30)','DECIMAL(10,3)','DECIMAL(10,2)','DECIMAL(10,2)','DECIMAL(10,5)','INT'
     ],
 
     // 骨密度
@@ -40,7 +43,9 @@ const key = {
 
     // 骨密度对应基本信息表
     boneHome_key : [
-        'bah','xm','xb','csrq','nl','cssf','csds','csdx','mz','sfzh','xzz','dh','hkdz','ryrqsj','cyrqsj','zyzdbm','zyzdjbms','sg','tz','bmi'
+        //'bah','xm','xb','csrq','nl','cssf','csds','csdx','mz','sfzh','xzz','dh','hkdz','ryrqsj','cyrqsj','zyzdbm','zyzdjbms','sg','tz','bmi'
+        'bah','xm','xb','csrq','nl','hyzk','zy','cssf','csds','csdx','sfzh','xzz','zzdh','xzzyzbm','gzdwjdz','dh','gzdwyzbm',
+        'hkdz','rybs','cybs','zyzdjbms','qtzdjbms1','qtzdjbms2','qtzdjbms3','blzdmc1','blh1','zyzfy','sg','tz','bmi','sfrxa'
     ],
 
     // 骨密度

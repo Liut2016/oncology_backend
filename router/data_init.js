@@ -883,15 +883,15 @@ router.get('/oa/load_bone',async(ctx,next) => {
         let i;
         
         // 处理首页信息
-        let home = item.slice(0,20);
+        let home = item.slice(0,31);
         home.forEach(r => {
             if(typeof(r) === 'undefined') r = null;
         })
-        if(!home[2]) home[2] = 0;
+        //if(!home[2]) home[2] = 0;
         table[0].data.push(home);
 
         // 处理骨密度信息
-        let temp1 = item.slice(20);
+        let temp1 = item.slice(31);
         i = 0;
         while(i < (temp1.length <= 56 ? temp1.length : 56))
         {
@@ -909,7 +909,7 @@ router.get('/oa/load_bone',async(ctx,next) => {
         }
         
         // 处理骨代谢信息
-        let temp2 = item.slice(76);
+        let temp2 = item.slice(87);
         i = 0;
         while(i < temp2.length)
         {

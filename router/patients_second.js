@@ -1380,41 +1380,15 @@ router.post('/oa/patients2/getBone2',async(ctx,next) => {
 router.get('/oa/patients2/getBone3',async (ctx,next) => {
     let sql1 = await db.query('SELECT part5_bah,part5_nl,part5_bmi,part5_sfrxa from SECOND_BONEHOME;');
     let sql2 = await db.query('SELECT part6_bah,part6_bmd FROM SECOND_BONEDENSITY;');
-    let sql3 = await db.query('SELECT part7_bah,part7_t25ohd FROM SECOND_VD;');
     let data = [];
     let bahSet = new Set()
-    Promise.all([sql1,sql2,sql3]).then(res => {
-        /*
-        res[0].forEach(r => {
-            if(r['part5_bmi'] < 18.50) r['bmiGroup'] = '体重减轻';
-            else if(r['part5_bmi'] >= 18.50 && r['part5_bmi'] <= 25.00) r['bmiGroup'] = '体重正常';
-            else if(r['part5_bmi'] > 25.00) r['bmiGroup'] = '超重'; 
-            for(let i = 0;i<res[1].length;i++){
-                if(r['part5_bah'] === res[1][i]['part6_bah'])
-                {
-                    r = Object.assign(r,res[1][i]);
-                    delete r['part6_bah'];
-                    break;
-                }
-            }
-            for(let i = 0;i<res[2].length;i++){
-                if(r['part5_bah'] === res[2][i]['part7_bah'])
-                {
-                    r = Object.assign(r,res[2][i]);
-                    delete r['part7_bah'];
-                    break;
-                }
-            }
-            
-        })
-        */
-
-
+    Promise.all([sql1,sql2]).then(res => {
         for(let i = 0;i < res[1].length;i++)
         {
             let temp = {};
-            if(bahSet.has(res[1][i]['part6_bah']) && res[1][i]['part6_bmd'] === null) continue;
+            if(bahSet.has(res[1][i]['part6_bah']) || res[1][i]['part6_bmd'] === null || res[1][i]['part6_bmd'] === 58.32 || res[1][i]['part6_bmd'] < 0 || res[1][i]['part6_bmd'] === 0) continue;
             else{
+                //console.log(typeof(res[1][i]['part6_bmd']))
                 for(let j = 0;j < res[0].length;j++)
                 {
                     if(res[1][i]['part6_bah'] === res[0][j]['part5_bah'])
@@ -1422,17 +1396,16 @@ router.get('/oa/patients2/getBone3',async (ctx,next) => {
                         if(res[0][j]['part5_bmi'] < 18.50) res[0][j]['bmiGroup'] = '体重减轻';
                         else if(res[0][j]['part5_bmi'] >= 18.50 && res[0][j]['part5_bmi'] <= 25.00) res[0][j]['bmiGroup'] = '体重正常';
                         else if(res[0][j]['part5_bmi'] > 25.00) res[0][j]['bmiGroup'] = '超重'; 
-                        temp = Object.assign(res[1][i],res[0][j])
+                        temp = Object.assign(res[1][i],res[0][j])    
+                        bahSet.add(res[1][i]['part6_bah']);
                         delete temp['part5_bah'];
                         delete temp['part6_bah'];
-                        bahSet.add(res[1][i]['part6_bah']);
                         break;
                     }
                 }
                 data.push(temp);
             }
         }
-
         ctx.body = {...Tips[0],data:data};
     }).catch(e => {
         ctx.body = {...Tips[1],reason:e};
@@ -1450,7 +1423,7 @@ router.get('/oa/patients2/getBone4',async (ctx,next) => {
         {
             let temp = {};
             let flag = false;
-            if(bahSet.has(res[1][i]['part6_bah']) && res[1][i]['part6_bmd'] === null) continue;
+            if(bahSet.has(res[1][i]['part6_bah']) || res[1][i]['part6_bmd'] === null || res[1][i]['part6_bmd'] === 58.32 || res[1][i]['part6_bmd'] < 0 || res[1][i]['part6_bmd'] === 0) continue;
             else{
                 for(let k = 0;k < res[2].length;k++)
                 {
@@ -1466,10 +1439,10 @@ router.get('/oa/patients2/getBone4',async (ctx,next) => {
                                 else if(res[0][j]['part5_bmi'] >= 18.50 && res[0][j]['part5_bmi'] <= 25.00) res[0][j]['bmiGroup'] = '体重正常';
                                 else if(res[0][j]['part5_bmi'] > 25.00) res[0][j]['bmiGroup'] = '超重'; 
                                 temp = Object.assign(res[1][i],res[0][j],res[2][k]);
+                                bahSet.add(res[1][i]['part6_bah']);
                                 delete temp['part5_bah'];
                                 delete temp['part6_bah'];
                                 delete temp['part7_bah'];
-                                bahSet.add(res[1][i]['part6_bah']);
                                 data.push(temp);
                                 break;
                             }
@@ -1480,7 +1453,6 @@ router.get('/oa/patients2/getBone4',async (ctx,next) => {
                 
             }
         }
-
         ctx.body = {...Tips[0],data:data};
     }).catch(e => {
         ctx.body = {...Tips[1],reason:e};

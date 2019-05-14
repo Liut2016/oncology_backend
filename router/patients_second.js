@@ -1286,6 +1286,7 @@ router.post('/oa/patients2/getAll3',async(ctx,next) => {
 // 给李安：获取骨密度、骨代谢等数据
 router.post('/oa/patients2/getBone',async(ctx,next) => {
     let dims = ctx.request.body.dims;
+    let group = ctx.request.body.source_group;
     let data = [];
     let result = [];
     let table = {
@@ -1295,6 +1296,7 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
     }
     for(let i in dims){
         dims[i].unshift(table[i]);
+        if(i === 'SECOND_BONEHOME') dims[i].push('part5_sfrxa');
         let sql = `SELECT ${dims[i].join(',')} FROM ${i};`;
         await db.query(sql).then(res => {
             res = res.map(r => {
@@ -1320,6 +1322,17 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
             ctx.body = {...Tips[1],reason:e};
         })
     }
+    if(group === 1){
+        for(let i = result.length - 1;i >= 0 ;i--){
+            if(result[i]['part5_sfrxa'] === 0) result.splice(i,1);
+        }
+    }else if(group === 0){
+        for(let i = result.length - 1;i >= 0 ;i--){
+            if(result[i]['part5_sfrxa'] === 1) result.splice(i,1);
+        }
+    }
+
+
     ctx.body = {...Tips[0],data:result};
 })
 
@@ -1454,6 +1467,76 @@ router.get('/oa/patients2/getBone4',async (ctx,next) => {
             }
         }
         ctx.body = {...Tips[0],data:data};
+    }).catch(e => {
+        ctx.body = {...Tips[1],reason:e};
+    })
+})
+
+router.get('/oa/patients2/getBone5',async(ctx,next) => {
+    let sql1 = await db.query('SELECT part5_bah,part5_nl,part5_bmi,part5_sfrxa from SECOND_BONEHOME;');
+    let sql2 = await db.query('SELECT part6_bah,part6_bmd FROM SECOND_BONEDENSITY;');
+    let data = [];
+    let bahSet = new Set()
+    let cal = {
+        0:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        1:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        2:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        3:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        4:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        5:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}},
+        6:{0:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},1:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}},2:{1:{sum:0,num:0,avg:0},0:{sum:0,num:0,avg:0}}}
+    }
+
+    Promise.all([sql1,sql2]).then(res => {
+        for(let i = 0;i < res[1].length;i++)
+        {
+            let temp = {};
+            if(bahSet.has(res[1][i]['part6_bah']) || res[1][i]['part6_bmd'] === null || res[1][i]['part6_bmd'] === 58.32 || res[1][i]['part6_bmd'] < 0 || res[1][i]['part6_bmd'] === 0) continue;
+            else{
+                //console.log(typeof(res[1][i]['part6_bmd']))
+                for(let j = 0;j < res[0].length;j++)
+                {
+                    if(res[1][i]['part6_bah'] === res[0][j]['part5_bah'])
+                    {
+                        if(res[0][j]['part5_bmi'] < 18.50) res[0][j]['bmiGroup'] = 0;
+                        else if(res[0][j]['part5_bmi'] >= 18.50 && res[0][j]['part5_bmi'] <= 25.00) res[0][j]['bmiGroup'] = 1;
+                        else if(res[0][j]['part5_bmi'] > 25.00) res[0][j]['bmiGroup'] = 2; 
+
+                        if(res[0][j]['part5_nl'] > 0 && res[0][j]['part5_nl'] <= 30) res[0][j]['nlGroup'] = 0;
+                        else if(res[0][j]['part5_nl'] > 30 && res[0][j]['part5_nl'] <= 40) res[0][j]['nlGroup'] = 1;
+                        else if(res[0][j]['part5_nl'] > 40 && res[0][j]['part5_nl'] <= 50) res[0][j]['nlGroup'] = 2;
+                        else if(res[0][j]['part5_nl'] > 50 && res[0][j]['part5_nl'] <= 60) res[0][j]['nlGroup'] = 3;
+                        else if(res[0][j]['part5_nl'] > 60 && res[0][j]['part5_nl'] <= 70) res[0][j]['nlGroup'] = 4;
+                        else if(res[0][j]['part5_nl'] > 70 && res[0][j]['part5_nl'] <= 80) res[0][j]['nlGroup'] = 5;
+                        else if(res[0][j]['part5_nl'] > 80) res[0][j]['nlGroup'] = 6;
+                        temp = Object.assign(res[1][i],res[0][j])    
+                        bahSet.add(res[1][i]['part6_bah']);
+                        delete temp['part5_bah'];
+                        delete temp['part6_bah'];
+                        break;
+                    }
+                }
+                data.push(temp);
+            }
+        }
+
+        data.forEach(r => {
+            cal[r['nlGroup']][r['bmiGroup']][r['part5_sfrxa']]['sum'] += r['part6_bmd'];
+            cal[r['nlGroup']][r['bmiGroup']][r['part5_sfrxa']]['num'] ++;
+        })
+
+        /*
+        for(let i in cal){
+            for(let j in cal[i]){
+                for(let k in cal[i][j][k]){
+                    if(!cal[i][j][k]['num']) cal[i][j][k]['avg'] = '无数据';
+                    else cal[i][j][k]['avg'] = cal[i][j][k]['sum'] / cal[i][j][k]['num'];
+                }
+            }
+        }
+        */
+
+        ctx.body = {...Tips[0],data:data,cal:cal};
     }).catch(e => {
         ctx.body = {...Tips[1],reason:e};
     })

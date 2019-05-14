@@ -1294,6 +1294,7 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
         SECOND_BONEDENSITY:'part6_bah',
         SECOND_VD:'part7_bah'
     }
+    if(!('SECOND_BONEHOME' in dims)) dims['SECOND_BONEHOME'] = ['part5_bah'];
     for(let i in dims){
         dims[i].unshift(table[i]);
         if(i === 'SECOND_BONEHOME') dims[i].push('part5_sfrxa');

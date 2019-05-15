@@ -988,6 +988,51 @@ router.post('/oa/patients2/getAll',async(ctx,next) => {
     let feeData = [];
     let lisData = [];
     let result = [];
+
+    const table = {
+        zy:{
+            "11":"国家公务员",
+            "13":"专业技术人员",
+            "17":"职员",
+            "21":"企业管理人员",
+            "24":"工人",
+            "27":"农民",
+            "31":"学生",
+            "37":"现役军人",
+            "51":"自由职业者",
+            "54":"个体经营者",
+            "70":"无业人员",
+            "80":"退（离）休人员",
+            "90":"其他"
+        },
+        mzfs:{
+            "01":"全身麻醉",
+            "02":"局部麻醉",
+            "0101":"支气管麻醉",
+            "0102":"全凭静脉麻醉",
+            "0103":"静吸复合麻醉",
+            "0104":"基础麻醉",
+            "020101":"蛛网膜下腔麻醉",
+            "020102":"硬膜外麻醉",
+            "0301":"表面麻醉",
+            "0302":"局部浸润麻醉",
+            "0303":"区域阻滞麻醉",
+            "0502":"低温麻醉",
+            "0503":"控制性降压麻醉",
+            "99":"针刺麻醉",
+        },
+        ylfkfs:{
+            //0:"测试",
+            1:"城镇职工基本医疗保险",
+            2:"城镇居民基本医疗保险",
+            3:"新型农村合作医疗",
+            6:"全公费",
+            7:"全自费",
+            8:"其他社会保险",
+            9:"其他"
+        }
+    };
+
     if(typeof(home) != 'undefined' || typeof(home) === 'undefined' && typeof(fee) != 'undefined' && typeof(lis) != 'undefined')
     {
         let sql1 = '';
@@ -1193,6 +1238,11 @@ router.post('/oa/patients2/getAll',async(ctx,next) => {
             result.push(obj);
         }
     }
+    result.forEach(r => {
+        if('part1_ylfkfs' in r && r['part1_ylfkfs'] in table['ylfkfs']) r['part1_ylfkfs'] = table['ylfkfs'][r['part1_ylfkfs']]; 
+        if('part1_zy' in r && r['part1_zy'] in table['zy']) r['part1_zy'] = table['zy'][r['part1_zy']]; 
+        if('part1_mzfs' in r && r['part1_mzfs'] in table['mzfs']) r['part1_mzfs'] = table['mzfs'][r['part1_mzfs']]; 
+    })
     ctx.body = {...Tips[0],data:result};
 });
 
@@ -1333,6 +1383,11 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
         }
     }
 
+    result.forEach(r => {
+        if('part5_bmi' in r && r['part5_bmi'] > 60 || r['part5_bmi'] === 0) r['part5_bmi'] = 20.81165453;
+        if('part6_bmd' in r && r['part6_bmd'] <= 0 || r['part6_bmd'] >= 50) r['part6_bmd'] = 0.829;
+    })
+    //console.log(result);
 
     ctx.body = {...Tips[0],data:result};
 })
@@ -1526,20 +1581,56 @@ router.get('/oa/patients2/getBone5',async(ctx,next) => {
             cal[r['nlGroup']][r['bmiGroup']][r['part5_sfrxa']]['num'] ++;
         })
 
-        /*
+
         for(let i in cal){
             for(let j in cal[i]){
-                for(let k in cal[i][j][k]){
+                for(let k in cal[i][j]){
                     if(!cal[i][j][k]['num']) cal[i][j][k]['avg'] = '无数据';
                     else cal[i][j][k]['avg'] = cal[i][j][k]['sum'] / cal[i][j][k]['num'];
                 }
             }
         }
-        */
+        
 
         ctx.body = {...Tips[0],data:data,cal:cal};
     }).catch(e => {
         ctx.body = {...Tips[1],reason:e};
+    })
+})
+
+//给师兄返回骨代谢与年龄数组
+router.get('/oa/patients2/getT25',async(ctx,next) => {
+    let t25ohd = [];
+    let age = [];
+    let bahSet = new Set();
+    let sql1 = await db.query('SELECT part7_bah,part7_t25ohd FROM SECOND_VD WHERE part7_t25ohd IS NOT NULL ORDER BY part7_jyrq asc;');
+    let sql2 = await db.query('SELECT part5_bah,part5_nl FROM SECOND_BONEHOME;');
+
+    Promise.all([sql1,sql2]).then(res => {
+        for(let i = 0;i < res[0].length;i++)
+        {
+            let bah = res[0][i]['part7_bah'];
+            if(bahSet.has(bah)) continue;
+            else{
+                bahSet.add(bah);
+                let t25 = res[0][i]['part7_t25ohd'];
+                let nl = 0;
+                for(let j = 0;j < res[1].length;j++)
+                {
+                    if(res[1][j]['part5_bah'] === bah){
+                        nl = res[1][j]['part5_nl'];
+                        break;
+                    }
+                }
+                t25ohd.push(t25);
+                age.push(nl);
+            }
+        }
+        //console.log(t25ohd);
+        //console.log(age);
+        ctx.body = {...Tips[0],t25ohd:t25ohd,age:age};
+    }).catch(e => {
+        ctx.body = {...Tips[1],error:e};
     })
 })
 

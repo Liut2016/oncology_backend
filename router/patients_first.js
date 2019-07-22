@@ -1316,6 +1316,7 @@ router.post('/oa/patients1/exportdata',async(ctx,next) => {
 
             for(let element in rule){
                 let sql2 = '';
+                console.log(element);
                 if(element != "FIRST_LIS"){
                     //if(!(table[element] in rule[element])) rule[element].unshift(table[element]);
                     //fields = fields.concat(rule[element]);
@@ -1325,8 +1326,11 @@ router.post('/oa/patients1/exportdata',async(ctx,next) => {
 
                     if(isAll) sql2 = `SELECT ${rule[element].join(',')} FROM ${element};`;
                     else{
-                        if(element == 'FIRST_RESULTS'){
+                        console.log(element);
+                        if(element === 'FIRST_RESULTS'){
+                            console.log(sql2);
                             let zyh = patients.map(element => {return element.substring(7);});
+                            console.log(zyh);
                             sql2 = `SELECT ${rule[element].join(',')} FROM ${element} WHERE ${exportKeyTable[element].key} in (${zyh.join(',')});`;
                         }
                         else{

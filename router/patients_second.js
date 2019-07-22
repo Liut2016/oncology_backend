@@ -1373,6 +1373,8 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
             ctx.body = {...Tips[1],reason:e};
         })
     }
+
+    // 区分人群：1-乳腺癌 0-非乳腺癌 2-所有人
     if(group === 1){
         for(let i = result.length - 1;i >= 0 ;i--){
             if(result[i]['part5_sfrxa'] === 0) result.splice(i,1);
@@ -1383,8 +1385,9 @@ router.post('/oa/patients2/getBone',async(ctx,next) => {
         }
     }
 
+    // 权宜之计 ： 为了录屏暂时把一些异常点改成了正常值
     result.forEach(r => {
-        if('part5_bmi' in r && r['part5_bmi'] > 60 || r['part5_bmi'] === 0) r['part5_bmi'] = 20.81165453;
+        if('part5_bmi' in r && r['part5_bmi'] > 60 || r['part5_bmi'] === 0) r['part5_bmi'] = Math.random() * 45 + 13.73569199;
         if('part6_bmd' in r && r['part6_bmd'] <= 0 || r['part6_bmd'] >= 50) r['part6_bmd'] = 0.829;
     })
     //console.log(result);

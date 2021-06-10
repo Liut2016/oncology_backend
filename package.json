@@ -35,7 +35,7 @@
     "async-busboy": "^0.6.2",
     "is": "^3.2.1",
     "jsonwebtoken": "^8.2.0",
-    "locutus": "^2.0.9",
+    "locutus": "^2.0.15",
     "lodash": "^4.17.11",
     "log4js": "^3.0.6",
     "md5": "^2.2.1",
